@@ -8,15 +8,15 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Cyberpunk Neon Theme - Dark Mode Always */
+    /* Pure Black Cyberpunk Neon Theme */
     --background: 0 0% 0%;
-    --foreground: 120 100% 80%;
+    --foreground: 180 100% 50%;
     
-    --card: 0 0% 5%;
-    --card-foreground: 180 100% 85%;
+    --card: 0 0% 0%;
+    --card-foreground: 180 100% 50%;
     
-    --popover: 0 0% 3%;
-    --popover-foreground: 180 100% 85%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 180 100% 50%;
     
     --primary: 180 100% 50%;
     --primary-foreground: 0 0% 0%;
@@ -24,8 +24,8 @@ All colors MUST be HSL.
     --secondary: 300 100% 50%;
     --secondary-foreground: 0 0% 0%;
     
-    --muted: 0 0% 10%;
-    --muted-foreground: 180 50% 60%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 180 100% 50%;
     
     --accent: 330 100% 50%;
     --accent-foreground: 0 0% 0%;
@@ -33,28 +33,34 @@ All colors MUST be HSL.
     --destructive: 0 100% 50%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 180 100% 40%;
-    --input: 0 0% 10%;
+    --border: 180 100% 50%;
+    --input: 0 0% 5%;
     --ring: 180 100% 50%;
     
-    --radius: 0.25rem;
+    --radius: 0.125rem;
     
-    /* Neon colors */
+    /* Exact Neon colors from screenshots */
     --neon-cyan: 180 100% 50%;
+    --neon-lime: 92 100% 59%;
     --neon-magenta: 300 100% 50%;
-    --neon-green: 120 100% 50%;
-    --neon-red: 0 100% 50%;
+    --neon-red: 348 100% 50%;
     --neon-purple: 270 100% 60%;
+    --neon-blue: 210 100% 50%;
+    --neon-yellow: 54 100% 50%;
+    --neon-orange: 30 100% 50%;
     
     /* Gradients */
     --gradient-cyber: linear-gradient(135deg, hsl(180 100% 50%), hsl(270 100% 60%));
     --gradient-neon: linear-gradient(90deg, hsl(180 100% 50%), hsl(300 100% 50%), hsl(0 100% 50%));
     
-    /* Glow effects */
-    --glow-cyan: 0 0 10px hsl(180 100% 50%), 0 0 20px hsl(180 100% 50%), 0 0 30px hsl(180 100% 50%);
-    --glow-magenta: 0 0 10px hsl(300 100% 50%), 0 0 20px hsl(300 100% 50%), 0 0 30px hsl(300 100% 50%);
-    --glow-green: 0 0 10px hsl(120 100% 50%), 0 0 20px hsl(120 100% 50%), 0 0 30px hsl(120 100% 50%);
-    --glow-red: 0 0 10px hsl(0 100% 50%), 0 0 20px hsl(0 100% 50%), 0 0 30px hsl(0 100% 50%);
+    /* Intense Glow effects */
+    --glow-cyan: 0 0 5px hsl(180 100% 50%), 0 0 10px hsl(180 100% 50%), 0 0 15px hsl(180 100% 50%), 0 0 20px hsl(180 100% 50%);
+    --glow-lime: 0 0 5px hsl(92 100% 59%), 0 0 10px hsl(92 100% 59%), 0 0 15px hsl(92 100% 59%), 0 0 20px hsl(92 100% 59%);
+    --glow-magenta: 0 0 5px hsl(300 100% 50%), 0 0 10px hsl(300 100% 50%), 0 0 15px hsl(300 100% 50%), 0 0 20px hsl(300 100% 50%);
+    --glow-red: 0 0 5px hsl(348 100% 50%), 0 0 10px hsl(348 100% 50%), 0 0 15px hsl(348 100% 50%), 0 0 20px hsl(348 100% 50%);
+    --glow-blue: 0 0 5px hsl(210 100% 50%), 0 0 10px hsl(210 100% 50%), 0 0 15px hsl(210 100% 50%), 0 0 20px hsl(210 100% 50%);
+    --glow-yellow: 0 0 5px hsl(54 100% 50%), 0 0 10px hsl(54 100% 50%), 0 0 15px hsl(54 100% 50%), 0 0 20px hsl(54 100% 50%);
+    --glow-orange: 0 0 5px hsl(30 100% 50%), 0 0 10px hsl(30 100% 50%), 0 0 15px hsl(30 100% 50%), 0 0 20px hsl(30 100% 50%);
   }
 }
 
@@ -64,15 +70,20 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-mono;
+    @apply bg-black text-foreground;
+    font-family: 'Rajdhani', sans-serif;
     background-image: 
       repeating-linear-gradient(
         0deg,
-        rgba(0, 240, 255, 0.03) 0px,
+        rgba(0, 255, 255, 0.02) 0px,
         transparent 1px,
         transparent 2px,
-        rgba(0, 240, 255, 0.03) 3px
+        rgba(0, 255, 255, 0.02) 3px
       );
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Orbitron', sans-serif;
   }
   
   .scrollbar-hide {
@@ -88,44 +99,93 @@ All colors MUST be HSL.
     text-shadow: var(--glow-cyan);
   }
   
-  .glow-text-magenta {
-    text-shadow: var(--glow-magenta);
+  .glow-text-lime {
+    text-shadow: var(--glow-lime);
   }
   
-  .glow-text-green {
-    text-shadow: var(--glow-green);
+  .glow-text-magenta {
+    text-shadow: var(--glow-magenta);
   }
   
   .glow-text-red {
     text-shadow: var(--glow-red);
   }
   
+  .glow-text-blue {
+    text-shadow: var(--glow-blue);
+  }
+  
+  .glow-text-yellow {
+    text-shadow: var(--glow-yellow);
+  }
+  
+  .glow-text-orange {
+    text-shadow: var(--glow-orange);
+  }
+  
   .glow-border-cyan {
     box-shadow: var(--glow-cyan);
+  }
+  
+  .glow-border-lime {
+    box-shadow: var(--glow-lime);
   }
   
   .glow-border-magenta {
     box-shadow: var(--glow-magenta);
   }
   
-  .glow-border-green {
-    box-shadow: var(--glow-green);
-  }
-  
   .glow-border-red {
     box-shadow: var(--glow-red);
   }
   
+  .glow-border-blue {
+    box-shadow: var(--glow-blue);
+  }
+  
+  .glow-border-yellow {
+    box-shadow: var(--glow-yellow);
+  }
+  
+  .glow-border-orange {
+    box-shadow: var(--glow-orange);
+  }
+  
   .cyber-card {
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.9);
     border: 1px solid hsl(var(--neon-cyan));
     backdrop-filter: blur(10px);
     transition: all 0.3s ease;
   }
   
   .cyber-card:hover {
-    border-color: hsl(var(--neon-magenta));
     box-shadow: var(--glow-cyan);
     transform: translateY(-2px);
+  }
+  
+  .cyber-border {
+    position: relative;
+  }
+  
+  .cyber-border::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid hsl(var(--neon-cyan));
+    border-left: 2px solid hsl(var(--neon-cyan));
+  }
+  
+  .cyber-border::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    border-bottom: 2px solid hsl(var(--neon-cyan));
+    border-right: 2px solid hsl(var(--neon-cyan));
   }
 }
