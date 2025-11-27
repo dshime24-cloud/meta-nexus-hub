@@ -3,6 +3,7 @@ import { Plus, Search, Filter, Database, Shield, Skull } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CharacterCard } from "@/components/CharacterCard";
+import { CreateCharacterModal } from "@/components/CreateCharacterModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -10,6 +11,7 @@ export default function Dashboard() {
   const [characters, setCharacters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -116,7 +118,10 @@ export default function Dashboard() {
 
       {/* Actions */}
       <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <Button className="bg-neon-cyan text-black hover:bg-neon-cyan/80 glow-border-cyan font-bold">
+        <Button 
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-neon-cyan text-black hover:bg-neon-cyan/80 glow-border-cyan font-bold"
+        >
           <Plus className="mr-2 w-4 h-4" />
           Nova Ficha
         </Button>
@@ -171,6 +176,12 @@ export default function Dashboard() {
           ))}
         </div>
       )}
+      
+      <CreateCharacterModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        onSuccess={fetchCharacters}
+      />
     </div>
   );
 }
