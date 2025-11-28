@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, Skull, Zap, Users, Star } from "lucide-react";
+import { ArrowLeft, Shield, Skull, Zap, Users, Star, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
+import { EditCharacterModal } from "@/components/EditCharacterModal";
+import { PowerSelector } from "@/components/PowerSelector";
 
 export default function CharacterDetail() {
   const { id } = useParams();
@@ -17,6 +19,7 @@ export default function CharacterDetail() {
   const [attributes, setAttributes] = useState<any>(null);
   const [powers, setPowers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -83,14 +86,23 @@ export default function CharacterDetail() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <Button
-        variant="ghost"
-        onClick={() => navigate("/")}
-        className="mb-6 text-neon-cyan hover:text-neon-cyan hover:bg-neon-cyan/20"
-      >
-        <ArrowLeft className="mr-2 w-4 h-4" />
-        Voltar
-      </Button>
+      <div className="flex items-center justify-between mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/")}
+          className="text-neon-cyan hover:text-neon-cyan hover:bg-neon-cyan/20"
+        >
+          <ArrowLeft className="mr-2 w-4 h-4" />
+          Voltar
+        </Button>
+        <Button
+          onClick={() => setIsEditModalOpen(true)}
+          className="bg-neon-cyan text-background hover:bg-neon-cyan/90 font-bold glow-cyan"
+        >
+          <Edit className="mr-2 w-4 h-4" />
+          Editar Ficha
+        </Button>
+      </div>
 
       {/* Header Section */}
       <div className="cyber-card p-8 mb-8">
@@ -230,35 +242,11 @@ export default function CharacterDetail() {
 
         {/* Powers */}
         <Card className="cyber-card p-6">
-          <h2 className="text-2xl font-bold text-neon-cyan mb-6 flex items-center">
-            <Zap className="mr-2" />
-            Poderes
-          </h2>
-          {powers.length > 0 ? (
-            <div className="space-y-4">
-              {powers.map((power) => (
-                <div key={power.id} className="p-4 bg-muted/50 rounded border border-neon-cyan/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-bold text-foreground">
-                      {power.custom_name || power.powers_library?.name}
-                    </h3>
-                    <Badge className="bg-neon-magenta/20 text-neon-magenta border-neon-magenta">
-                      Nível {power.level}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{power.description}</p>
-                  {power.extras && (
-                    <p className="text-xs text-neon-green mt-2">Extras: {power.extras}</p>
-                  )}
-                  {power.limitations && (
-                    <p className="text-xs text-neon-red mt-1">Limitações: {power.limitations}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-8">Nenhum poder cadastrado</p>
-          )}
+          <PowerSelector
+            characterId={id!}
+            existingPowers={powers}
+            onUpdate={fetchCharacter}
+          />
         </Card>
 
         {/* Origin Story */}
@@ -269,6 +257,14 @@ export default function CharacterDetail() {
           </Card>
         )}
       </div>
+
+      {/* Edit Modal */}
+      <EditCharacterModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        characterId={id!}
+        onSuccess={fetchCharacter}
+      />
     </div>
   );
 }
