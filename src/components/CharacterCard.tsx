@@ -1,7 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { Shield, Skull } from "lucide-react";
+import { Shield, Skull, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
+import { useState } from "react";
+import { EditCharacterModal } from "./EditCharacterModal";
 
 interface CharacterCardProps {
   id: string;
@@ -32,6 +34,13 @@ export const CharacterCard = ({
   attributes,
 }: CharacterCardProps) => {
   const navigate = useNavigate();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [, forceUpdate] = useState({});
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditModalOpen(true);
+  };
 
   const radarData = [
     { attribute: "Coord", value: attributes.coordination || 1 },
@@ -77,10 +86,11 @@ export const CharacterCard = ({
 
       <div className="absolute top-2 right-2 flex gap-2">
         <button 
-          className="w-6 h-6 rounded-full border border-neon-cyan flex items-center justify-center hover:bg-neon-cyan/20 transition-all"
-          onClick={(e) => e.stopPropagation()}
+          className="w-6 h-6 rounded-full border border-neon-cyan flex items-center justify-center hover:bg-neon-cyan/20 transition-all opacity-0 group-hover:opacity-100"
+          onClick={handleEdit}
+          title="Editar ficha"
         >
-          <span className="text-neon-cyan text-xs">⋮</span>
+          <Edit className="w-3 h-3 text-neon-cyan" />
         </button>
       </div>
 
@@ -188,6 +198,13 @@ export const CharacterCard = ({
           ABRIR
         </button>
       </div>
+
+      <EditCharacterModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        characterId={id}
+        onSuccess={() => forceUpdate({})}
+      />
     </div>
   );
 };

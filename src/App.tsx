@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import Index from "./pages/Index";
 import CharacterDetail from "./pages/CharacterDetail";
+import PowersLibrary from "./pages/PowersLibrary";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,7 +22,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/character/:id" element={<CharacterDetail />} />
           <Route path="/loja" element={<div className="p-8 text-center text-muted-foreground">Loja em desenvolvimento...</div>} />
-          <Route path="/poderes" element={<div className="p-8 text-center text-muted-foreground">Poderes em desenvolvimento...</div>} />
+          <Route path="/poderes" element={<PowersLibrary />} />
           <Route path="/relacoes" element={<div className="p-8 text-center text-muted-foreground">Relações em desenvolvimento...</div>} />
           <Route path="/historias" element={<div className="p-8 text-center text-muted-foreground">Histórias em desenvolvimento...</div>} />
           <Route path="/missoes" element={<div className="p-8 text-center text-muted-foreground">Missões em desenvolvimento...</div>} />
