@@ -217,6 +217,125 @@ export type Database = {
         }
         Relationships: []
       }
+      mission_participants: {
+        Row: {
+          character_id: string
+          id: string
+          joined_at: string | null
+          mission_id: string
+          role: string | null
+        }
+        Insert: {
+          character_id: string
+          id?: string
+          joined_at?: string | null
+          mission_id: string
+          role?: string | null
+        }
+        Update: {
+          character_id?: string
+          id?: string
+          joined_at?: string | null
+          mission_id?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_participants_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_participants_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_timeline: {
+        Row: {
+          description: string
+          event_date: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          mission_id: string
+        }
+        Insert: {
+          description: string
+          event_date?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          mission_id: string
+        }
+        Update: {
+          description?: string
+          event_date?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          mission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_timeline_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      missions: {
+        Row: {
+          created_at: string
+          description: string | null
+          difficulty: string
+          end_date: string | null
+          id: string
+          location: string | null
+          start_date: string | null
+          status: string
+          threat_level: number | null
+          title: string
+          updated_at: string
+          xp_reward: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          difficulty: string
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          start_date?: string | null
+          status?: string
+          threat_level?: number | null
+          title: string
+          updated_at?: string
+          xp_reward?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          difficulty?: string
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          start_date?: string | null
+          status?: string
+          threat_level?: number | null
+          title?: string
+          updated_at?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
       powers_library: {
         Row: {
           base_level: number | null

@@ -7,6 +7,7 @@ import { Navigation } from "@/components/Navigation";
 import Index from "./pages/Index";
 import CharacterDetail from "./pages/CharacterDetail";
 import PowersLibrary from "./pages/PowersLibrary";
+import Missions from "./pages/Missions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,7 +26,7 @@ const App = () => (
           <Route path="/poderes" element={<PowersLibrary />} />
           <Route path="/relacoes" element={<div className="p-8 text-center text-muted-foreground">Relações em desenvolvimento...</div>} />
           <Route path="/historias" element={<div className="p-8 text-center text-muted-foreground">Histórias em desenvolvimento...</div>} />
-          <Route path="/missoes" element={<div className="p-8 text-center text-muted-foreground">Missões em desenvolvimento...</div>} />
+          <Route path="/missoes" element={<Missions />} />
           <Route path="/mapas" element={<div className="p-8 text-center text-muted-foreground">Mapas em desenvolvimento...</div>} />
           <Route path="/linha-tempo" element={<div className="p-8 text-center text-muted-foreground">Linha do Tempo em desenvolvimento...</div>} />
           <Route path="/tempo" element={<div className="p-8 text-center text-muted-foreground">Tempo em desenvolvimento...</div>} />
