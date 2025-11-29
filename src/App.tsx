@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import CharacterDetail from "./pages/CharacterDetail";
 import PowersLibrary from "./pages/PowersLibrary";
 import Missions from "./pages/Missions";
+import Relationships from "./pages/Relationships";
+import StoryArcs from "./pages/StoryArcs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,8 +26,8 @@ const App = () => (
           <Route path="/character/:id" element={<CharacterDetail />} />
           <Route path="/loja" element={<div className="p-8 text-center text-muted-foreground">Loja em desenvolvimento...</div>} />
           <Route path="/poderes" element={<PowersLibrary />} />
-          <Route path="/relacoes" element={<div className="p-8 text-center text-muted-foreground">Relações em desenvolvimento...</div>} />
-          <Route path="/historias" element={<div className="p-8 text-center text-muted-foreground">Histórias em desenvolvimento...</div>} />
+          <Route path="/relacoes" element={<Relationships />} />
+          <Route path="/historias" element={<StoryArcs />} />
           <Route path="/missoes" element={<Missions />} />
           <Route path="/mapas" element={<div className="p-8 text-center text-muted-foreground">Mapas em desenvolvimento...</div>} />
           <Route path="/linha-tempo" element={<div className="p-8 text-center text-muted-foreground">Linha do Tempo em desenvolvimento...</div>} />

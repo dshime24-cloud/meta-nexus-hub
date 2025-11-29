@@ -155,10 +155,21 @@ All colors MUST be HSL.
     background: rgba(0, 0, 0, 0.9);
     border: 1px solid hsl(var(--neon-cyan));
     backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
+    transition: box-shadow 0.3s ease;
   }
   
   .cyber-card:hover {
+    box-shadow: var(--glow-cyan);
+  }
+  
+  .cyber-card-interactive {
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid hsl(var(--neon-cyan));
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  }
+  
+  .cyber-card-interactive:hover {
     box-shadow: var(--glow-cyan);
     transform: translateY(-2px);
   }

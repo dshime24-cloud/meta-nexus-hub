@@ -444,6 +444,216 @@ export type Database = {
         }
         Relationships: []
       }
+      story_arc_characters: {
+        Row: {
+          character_id: string
+          id: string
+          joined_at: string | null
+          role: string | null
+          story_arc_id: string
+        }
+        Insert: {
+          character_id: string
+          id?: string
+          joined_at?: string | null
+          role?: string | null
+          story_arc_id: string
+        }
+        Update: {
+          character_id?: string
+          id?: string
+          joined_at?: string | null
+          role?: string | null
+          story_arc_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_arc_characters_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_arc_characters_story_arc_id_fkey"
+            columns: ["story_arc_id"]
+            isOneToOne: false
+            referencedRelation: "story_arcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_arc_missions: {
+        Row: {
+          chapter_id: string | null
+          id: string
+          mission_id: string
+          sequence_order: number | null
+          story_arc_id: string
+        }
+        Insert: {
+          chapter_id?: string | null
+          id?: string
+          mission_id: string
+          sequence_order?: number | null
+          story_arc_id: string
+        }
+        Update: {
+          chapter_id?: string | null
+          id?: string
+          mission_id?: string
+          sequence_order?: number | null
+          story_arc_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_arc_missions_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "story_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_arc_missions_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_arc_missions_story_arc_id_fkey"
+            columns: ["story_arc_id"]
+            isOneToOne: false
+            referencedRelation: "story_arcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_arcs: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          image_url: string | null
+          start_date: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          image_url?: string | null
+          start_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          image_url?: string | null
+          start_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      story_chapters: {
+        Row: {
+          chapter_number: number
+          created_at: string
+          description: string | null
+          id: string
+          status: string
+          story_arc_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          chapter_number?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          story_arc_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          chapter_number?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          story_arc_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_chapters_story_arc_id_fkey"
+            columns: ["story_arc_id"]
+            isOneToOne: false
+            referencedRelation: "story_arcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_timeline: {
+        Row: {
+          chapter_id: string | null
+          description: string | null
+          event_date: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          story_arc_id: string
+          title: string
+        }
+        Insert: {
+          chapter_id?: string | null
+          description?: string | null
+          event_date?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          story_arc_id: string
+          title: string
+        }
+        Update: {
+          chapter_id?: string | null
+          description?: string | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          story_arc_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_timeline_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "story_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_timeline_story_arc_id_fkey"
+            columns: ["story_arc_id"]
+            isOneToOne: false
+            referencedRelation: "story_arcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
