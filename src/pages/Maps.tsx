@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { MapPin, Plus, Navigation, Globe, Trash2, Edit } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Tables } from "@/integrations/supabase/types";
@@ -55,91 +54,14 @@ interface LocationFormData {
   image_url: string;
 }
 
-// Component to handle map click events
-function MapClickHandler({ onLocationSelect, isActive }: { onLocationSelect: (lat: number, lng: number) => void; isActive: boolean }) {
-  useMapEvents({
-    click(e) {
-      if (isActive) {
-        onLocationSelect(e.latlng.lat, e.latlng.lng);
-      }
-    },
-  });
-  return null;
-}
-
-// Component to fly to a location
-function MapController({ location }: { location: Location | null }) {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (location) {
-      map.flyTo([Number(location.latitude), Number(location.longitude)], 8, {
-        duration: 1.5,
-      });
-    }
-  }, [location, map]);
-  
-  return null;
-}
-
-// Separate component for map markers to avoid context issues
-function LocationMarkers({ 
-  locations, 
-  onEdit, 
-  onDelete 
-}: { 
-  locations: Location[]; 
-  onEdit: (location: Location) => void; 
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <>
-      {locations.map((location) => (
-        <Marker
-          key={location.id}
-          position={[Number(location.latitude), Number(location.longitude)]}
-          icon={neonIcon}
-        >
-          <Popup>
-            <div className="min-w-[200px] p-2">
-              {location.image_url && (
-                <img
-                  src={location.image_url}
-                  alt={location.name}
-                  className="w-full h-32 object-cover rounded mb-2"
-                />
-              )}
-              <h3 className="font-bold text-lg mb-1 text-gray-900">{location.name}</h3>
-              {location.description && (
-                <p className="text-sm text-gray-600">{location.description}</p>
-              )}
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => onEdit(location)}
-                  className="flex-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => onDelete(location.id)}
-                  className="flex-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-                >
-                  Remover
-                </button>
-              </div>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-    </>
-  );
-}
-
 export default function Maps() {
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddingMode, setIsAddingMode] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [formData, setFormData] = useState<LocationFormData>({
     name: "",
     description: "",
@@ -209,13 +131,105 @@ export default function Maps() {
     },
   });
 
+  // Initialize map
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    const map = L.map(mapContainerRef.current, {
+      center: [-15.7801, -47.9292],
+      zoom: 4,
+    });
+
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Handle map click for adding locations
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const handleClick = (e: L.LeafletMouseEvent) => {
+      if (isAddingMode) {
+        setFormData(prev => ({ ...prev, latitude: e.latlng.lat, longitude: e.latlng.lng }));
+        setIsAddModalOpen(true);
+      }
+    };
+
+    mapRef.current.on("click", handleClick);
+
+    return () => {
+      mapRef.current?.off("click", handleClick);
+    };
+  }, [isAddingMode]);
+
+  // Update markers when locations change
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Remove old markers
+    markersRef.current.forEach((marker) => {
+      marker.remove();
+    });
+    markersRef.current.clear();
+
+    // Add new markers
+    locations.forEach((location) => {
+      const marker = L.marker([Number(location.latitude), Number(location.longitude)], {
+        icon: neonIcon,
+      });
+
+      const popupContent = `
+        <div class="min-w-[200px] p-2">
+          ${location.image_url ? `<img src="${location.image_url}" alt="${location.name}" class="w-full h-32 object-cover rounded mb-2" />` : ""}
+          <h3 class="font-bold text-lg mb-1 text-gray-900">${location.name}</h3>
+          ${location.description ? `<p class="text-sm text-gray-600">${location.description}</p>` : ""}
+          <div class="flex gap-2 mt-3">
+            <button onclick="window.dispatchEvent(new CustomEvent('editLocation', { detail: '${location.id}' }))" class="flex-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
+              Editar
+            </button>
+            <button onclick="window.dispatchEvent(new CustomEvent('deleteLocation', { detail: '${location.id}' }))" class="flex-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">
+              Remover
+            </button>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent);
+      marker.addTo(mapRef.current!);
+      markersRef.current.set(location.id, marker);
+    });
+  }, [locations]);
+
+  // Listen for popup button events
+  useEffect(() => {
+    const handleEdit = (e: CustomEvent<string>) => {
+      const location = locations.find(l => l.id === e.detail);
+      if (location) handleEditLocation(location);
+    };
+
+    const handleDelete = (e: CustomEvent<string>) => {
+      deleteMutation.mutate(e.detail);
+    };
+
+    window.addEventListener("editLocation", handleEdit as EventListener);
+    window.addEventListener("deleteLocation", handleDelete as EventListener);
+
+    return () => {
+      window.removeEventListener("editLocation", handleEdit as EventListener);
+      window.removeEventListener("deleteLocation", handleDelete as EventListener);
+    };
+  }, [locations]);
+
   const resetForm = () => {
     setFormData({ name: "", description: "", latitude: 0, longitude: 0, image_url: "" });
-  };
-
-  const handleLocationClick = (lat: number, lng: number) => {
-    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
-    setIsAddModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -227,7 +241,7 @@ export default function Maps() {
     }
   };
 
-  const handleEdit = (location: Location) => {
+  const handleEditLocation = (location: Location) => {
     setEditingLocation(location);
     setFormData({
       name: location.name,
@@ -239,14 +253,17 @@ export default function Maps() {
     setIsAddModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    deleteMutation.mutate(id);
-  };
-
   const navigateToLocation = (location: Location) => {
-    setSelectedLocation(location);
-    // Reset after animation
-    setTimeout(() => setSelectedLocation(null), 2000);
+    if (mapRef.current) {
+      mapRef.current.flyTo([Number(location.latitude), Number(location.longitude)], 8, {
+        duration: 1.5,
+      });
+      // Open the marker popup
+      const marker = markersRef.current.get(location.id);
+      if (marker) {
+        marker.openPopup();
+      }
+    }
   };
 
   return (
@@ -316,7 +333,7 @@ export default function Maps() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleEdit(location)}
+                          onClick={() => handleEditLocation(location)}
                         >
                           <Edit className="h-3 w-3 text-neon-lime" />
                         </Button>
@@ -324,7 +341,7 @@ export default function Maps() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDelete(location.id)}
+                          onClick={() => deleteMutation.mutate(location.id)}
                         >
                           <Trash2 className="h-3 w-3 text-neon-red" />
                         </Button>
@@ -344,24 +361,7 @@ export default function Maps() {
                   Clique no mapa para adicionar uma localização
                 </div>
               )}
-              <MapContainer
-                center={[-15.7801, -47.9292]}
-                zoom={4}
-                className="h-full w-full"
-                style={{ background: "#000" }}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                />
-                <MapClickHandler onLocationSelect={handleLocationClick} isActive={isAddingMode} />
-                <MapController location={selectedLocation} />
-                <LocationMarkers 
-                  locations={locations} 
-                  onEdit={handleEdit} 
-                  onDelete={handleDelete} 
-                />
-              </MapContainer>
+              <div ref={mapContainerRef} className="h-full w-full" style={{ background: "#000" }} />
             </div>
           </Card>
         </div>
