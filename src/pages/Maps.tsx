@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { MapPin, Plus, Navigation, Globe, Trash2, Edit } from "lucide-react";
@@ -55,25 +55,84 @@ interface LocationFormData {
   image_url: string;
 }
 
-function AddLocationMarker({ onLocationSelect }: { onLocationSelect: (lat: number, lng: number) => void }) {
+// Component to handle map click events
+function MapClickHandler({ onLocationSelect, isActive }: { onLocationSelect: (lat: number, lng: number) => void; isActive: boolean }) {
   useMapEvents({
     click(e) {
-      onLocationSelect(e.latlng.lat, e.latlng.lng);
+      if (isActive) {
+        onLocationSelect(e.latlng.lat, e.latlng.lng);
+      }
     },
   });
   return null;
 }
 
-function FlyToLocation({ location }: { location: Location | null }) {
+// Component to fly to a location
+function MapController({ location }: { location: Location | null }) {
   const map = useMap();
   
-  if (location) {
-    map.flyTo([Number(location.latitude), Number(location.longitude)], 8, {
-      duration: 1.5,
-    });
-  }
+  useEffect(() => {
+    if (location) {
+      map.flyTo([Number(location.latitude), Number(location.longitude)], 8, {
+        duration: 1.5,
+      });
+    }
+  }, [location, map]);
   
   return null;
+}
+
+// Separate component for map markers to avoid context issues
+function LocationMarkers({ 
+  locations, 
+  onEdit, 
+  onDelete 
+}: { 
+  locations: Location[]; 
+  onEdit: (location: Location) => void; 
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <>
+      {locations.map((location) => (
+        <Marker
+          key={location.id}
+          position={[Number(location.latitude), Number(location.longitude)]}
+          icon={neonIcon}
+        >
+          <Popup>
+            <div className="min-w-[200px] p-2">
+              {location.image_url && (
+                <img
+                  src={location.image_url}
+                  alt={location.name}
+                  className="w-full h-32 object-cover rounded mb-2"
+                />
+              )}
+              <h3 className="font-bold text-lg mb-1 text-gray-900">{location.name}</h3>
+              {location.description && (
+                <p className="text-sm text-gray-600">{location.description}</p>
+              )}
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => onEdit(location)}
+                  className="flex-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => onDelete(location.id)}
+                  className="flex-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                  Remover
+                </button>
+              </div>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  );
 }
 
 export default function Maps() {
@@ -155,10 +214,8 @@ export default function Maps() {
   };
 
   const handleLocationClick = (lat: number, lng: number) => {
-    if (isAddingMode) {
-      setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
-      setIsAddModalOpen(true);
-    }
+    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+    setIsAddModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -182,8 +239,14 @@ export default function Maps() {
     setIsAddModalOpen(true);
   };
 
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(id);
+  };
+
   const navigateToLocation = (location: Location) => {
     setSelectedLocation(location);
+    // Reset after animation
+    setTimeout(() => setSelectedLocation(null), 2000);
   };
 
   return (
@@ -261,7 +324,7 @@ export default function Maps() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => deleteMutation.mutate(location.id)}
+                          onClick={() => handleDelete(location.id)}
                         >
                           <Trash2 className="h-3 w-3 text-neon-red" />
                         </Button>
@@ -291,54 +354,13 @@ export default function Maps() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 />
-                
-                {isAddingMode && <AddLocationMarker onLocationSelect={handleLocationClick} />}
-                
-                <FlyToLocation location={selectedLocation} />
-                
-                {locations.map((location) => (
-                  <Marker
-                    key={location.id}
-                    position={[Number(location.latitude), Number(location.longitude)]}
-                    icon={neonIcon}
-                  >
-                    <Popup className="cyber-popup">
-                      <div className="min-w-[200px] p-2">
-                        {location.image_url && (
-                          <img
-                            src={location.image_url}
-                            alt={location.name}
-                            className="w-full h-32 object-cover rounded mb-2"
-                          />
-                        )}
-                        <h3 className="font-bold text-lg mb-1">{location.name}</h3>
-                        {location.description && (
-                          <p className="text-sm text-gray-600">{location.description}</p>
-                        )}
-                        <div className="flex gap-2 mt-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEdit(location)}
-                            className="flex-1"
-                          >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteMutation.mutate(location.id)}
-                            className="flex-1"
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Remover
-                          </Button>
-                        </div>
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
+                <MapClickHandler onLocationSelect={handleLocationClick} isActive={isAddingMode} />
+                <MapController location={selectedLocation} />
+                <LocationMarkers 
+                  locations={locations} 
+                  onEdit={handleEdit} 
+                  onDelete={handleDelete} 
+                />
               </MapContainer>
             </div>
           </Card>
