@@ -103,6 +103,44 @@ export type Database = {
           },
         ]
       }
+      character_specialties: {
+        Row: {
+          attribute: string
+          bonus: number
+          character_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          attribute: string
+          bonus?: number
+          character_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          attribute?: string
+          bonus?: number
+          character_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_specialties_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       characters: {
         Row: {
           age: number | null
@@ -418,6 +456,7 @@ export type Database = {
           description: string | null
           effect: string | null
           id: string
+          image_url: string | null
           name: string
           type: string
           unlimited: boolean | null
@@ -428,6 +467,7 @@ export type Database = {
           description?: string | null
           effect?: string | null
           id?: string
+          image_url?: string | null
           name: string
           type: string
           unlimited?: boolean | null
@@ -438,6 +478,7 @@ export type Database = {
           description?: string | null
           effect?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           type?: string
           unlimited?: boolean | null

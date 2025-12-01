@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -9,7 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, X, Loader2 } from "lucide-react";
+import { Upload, X, Loader2, Crop } from "lucide-react";
+import { ImageCropper } from "./ImageCropper";
+import { PowerSelectorSimple } from "./PowerSelectorSimple";
 
 const characterSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(100),
@@ -28,7 +30,6 @@ const characterSchema = z.object({
   backstory: z.string().optional(),
   appearance: z.string().optional(),
   motivation: z.string().optional(),
-  // Attributes
   coordination: z.number().min(1).max(15).default(1),
   vigor: z.number().min(1).max(15).default(1),
   intellect: z.number().min(1).max(15).default(1),
@@ -38,6 +39,15 @@ const characterSchema = z.object({
 });
 
 type CharacterFormData = z.infer<typeof characterSchema>;
+
+interface SelectedPower {
+  power_id: string;
+  custom_name: string;
+  level: number;
+  description: string;
+  extras: string;
+  limitations: string;
+}
 
 interface CreateCharacterModalProps {
   open: boolean;
@@ -53,6 +63,10 @@ export const CreateCharacterModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const [tempImageSrc, setTempImageSrc] = useState<string>("");
+  const [selectedPowers, setSelectedPowers] = useState<SelectedPower[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const {
@@ -75,7 +89,7 @@ export const CreateCharacterModal = ({
     },
   });
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
@@ -86,27 +100,41 @@ export const CreateCharacterModal = ({
         });
         return;
       }
-      setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        setTempImageSrc(reader.result as string);
+        setShowCropper(true);
       };
       reader.readAsDataURL(file);
     }
   };
 
+  const handleCropComplete = (croppedBlob: Blob) => {
+    const file = new File([croppedBlob], "cropped-image.jpg", { type: "image/jpeg" });
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(croppedBlob);
+    setShowCropper(false);
+  };
+
   const removeImage = () => {
     setImageFile(null);
     setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const uploadImage = async (characterId: string): Promise<string | null> => {
     if (!imageFile) return null;
 
-    const fileExt = imageFile.name.split(".").pop();
+    const fileExt = "jpg";
     const fileName = `${characterId}-${Date.now()}.${fileExt}`;
 
-    const { error: uploadError, data } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("character-images")
       .upload(fileName, imageFile);
 
@@ -175,6 +203,25 @@ export const CreateCharacterModal = ({
 
       if (attributesError) throw attributesError;
 
+      // Insert selected powers
+      if (selectedPowers.length > 0) {
+        const powersToInsert = selectedPowers.map((p) => ({
+          character_id: character.id,
+          power_id: p.power_id,
+          custom_name: p.custom_name || null,
+          level: p.level,
+          description: p.description || null,
+          extras: p.extras || null,
+          limitations: p.limitations || null,
+        }));
+
+        const { error: powersError } = await supabase
+          .from("character_powers")
+          .insert(powersToInsert);
+
+        if (powersError) throw powersError;
+      }
+
       toast({
         title: "✨ Personagem criado!",
         description: `${data.name} foi adicionado ao banco de dados.`,
@@ -182,6 +229,7 @@ export const CreateCharacterModal = ({
 
       reset();
       removeImage();
+      setSelectedPowers([]);
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -196,339 +244,363 @@ export const CreateCharacterModal = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="max-w-4xl max-h-[90vh] overflow-y-auto bg-black border-2 scrollbar-hide"
-        style={{
-          borderColor: 'hsl(var(--neon-cyan))',
-          boxShadow: '0 0 30px rgba(0, 255, 255, 0.4)',
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle 
-            className="text-2xl font-bold text-neon-cyan glow-text-cyan tracking-wider"
-            style={{ fontFamily: 'Orbitron, sans-serif' }}
-          >
-            + NOVA FICHA META-HUMANA
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent 
+          className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border-2 scrollbar-hide"
+          style={{
+            borderColor: 'hsl(var(--neon-cyan))',
+            boxShadow: '0 0 30px rgba(0, 255, 255, 0.4)',
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle 
+              className="text-2xl font-bold text-neon-cyan glow-text-cyan tracking-wider"
+              style={{ fontFamily: 'Orbitron, sans-serif' }}
+            >
+              + NOVA FICHA META-HUMANA
+            </DialogTitle>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-4">
-          {/* Image Upload */}
-          <div className="cyber-card p-4 rounded-sm" style={{
-            border: '1px solid hsl(var(--neon-cyan))',
-            boxShadow: '0 0 10px rgba(0, 255, 255, 0.2)'
-          }}>
-            <Label className="text-neon-cyan text-sm font-bold tracking-wide mb-2 block" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-              IMAGEM DO PERSONAGEM
-            </Label>
-            {imagePreview ? (
-              <div className="relative inline-block">
-                <img
-                  src={imagePreview}
-                  alt="Preview"
-                  className="w-32 h-32 object-cover rounded-sm border-2 border-neon-cyan"
-                />
-                <button
-                  type="button"
-                  onClick={removeImage}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-neon-red rounded-full flex items-center justify-center hover:scale-110 transition-transform"
-                >
-                  <X className="w-4 h-4 text-black" />
-                </button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-neon-cyan rounded-sm cursor-pointer hover:bg-neon-cyan/10 transition-all">
-                <Upload className="w-8 h-8 text-neon-cyan mb-2" />
-                <span className="text-xs text-neon-cyan" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  UPLOAD
-                </span>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-4">
+            {/* Image Upload */}
+            <div className="cyber-card p-4 rounded-sm" style={{
+              border: '1px solid hsl(var(--neon-cyan))',
+              boxShadow: '0 0 10px rgba(0, 255, 255, 0.2)'
+            }}>
+              <Label className="text-neon-cyan text-sm font-bold tracking-wide mb-2 block" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                IMAGEM DO PERSONAGEM
+              </Label>
+              <div className="flex items-center gap-4">
+                <div className="w-32 h-32 border-2 border-neon-cyan/30 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <Upload className="w-12 h-12 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10"
+                  >
+                    <Crop className="w-4 h-4 mr-2" />
+                    Selecionar e Recortar
+                  </Button>
+                  {imagePreview && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={removeImage}
+                      className="text-neon-red hover:bg-neon-red/10"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Remover
+                    </Button>
+                  )}
+                </div>
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={handleImageChange}
+                  onChange={handleImageSelect}
                   className="hidden"
                 />
-              </label>
-            )}
-          </div>
-
-          {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                NOME *
-              </Label>
-              <Input
-                {...register("name")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-              />
-              {errors.name && (
-                <p className="text-neon-red text-xs mt-1">{errors.name.message}</p>
-              )}
+              </div>
             </div>
 
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                ALIAS / CODINOME
-              </Label>
-              <Input
-                {...register("alias")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-              />
-            </div>
-
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                CLASSIFICAÇÃO *
-              </Label>
-              <select
-                {...register("classification")}
-                className="mt-1 w-full px-3 py-2 bg-black border border-neon-cyan text-neon-cyan rounded-sm"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-              >
-                <option value="F">F - Fraco</option>
-                <option value="D">D - Baixo</option>
-                <option value="C">C - Médio</option>
-                <option value="B">B - Alto</option>
-                <option value="A">A - Muito Alto</option>
-                <option value="S">S - Excepcional</option>
-              </select>
-            </div>
-
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                TIPO *
-              </Label>
-              <select
-                {...register("type")}
-                className="mt-1 w-full px-3 py-2 bg-black border border-neon-cyan text-neon-cyan rounded-sm"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-              >
-                <option value="hero">Herói</option>
-                <option value="villain">Vilão</option>
-                <option value="neutral">Neutro</option>
-              </select>
-            </div>
-
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                NÍVEL DE AMEAÇA
-              </Label>
-              <Input
-                type="number"
-                {...register("threatLevel", { valueAsNumber: true })}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-              />
-            </div>
-
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                LOCALIZAÇÃO
-              </Label>
-              <Input
-                {...register("location")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-              />
-            </div>
-          </div>
-
-          {/* Physical Info */}
-          <div className="cyber-card p-4 rounded-sm" style={{
-            border: '1px solid hsl(var(--neon-lime))',
-            boxShadow: '0 0 10px rgba(57, 255, 20, 0.2)'
-          }}>
-            <h3 className="text-neon-lime font-bold mb-3 tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              DADOS FÍSICOS
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Basic Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>IDADE</Label>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  NOME *
+                </Label>
+                <Input
+                  {...register("name")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                />
+                {errors.name && (
+                  <p className="text-neon-red text-xs mt-1">{errors.name.message}</p>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  ALIAS / CODINOME
+                </Label>
+                <Input
+                  {...register("alias")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                />
+              </div>
+
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  CLASSIFICAÇÃO *
+                </Label>
+                <select
+                  {...register("classification")}
+                  className="mt-1 w-full px-3 py-2 bg-background border border-neon-cyan text-foreground rounded-sm"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                >
+                  <option value="F">F - Fraco</option>
+                  <option value="D">D - Baixo</option>
+                  <option value="C">C - Médio</option>
+                  <option value="B">B - Alto</option>
+                  <option value="A">A - Muito Alto</option>
+                  <option value="S">S - Excepcional</option>
+                </select>
+              </div>
+
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  TIPO *
+                </Label>
+                <select
+                  {...register("type")}
+                  className="mt-1 w-full px-3 py-2 bg-background border border-neon-cyan text-foreground rounded-sm"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                >
+                  <option value="hero">Herói</option>
+                  <option value="villain">Vilão</option>
+                  <option value="neutral">Neutro</option>
+                </select>
+              </div>
+
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  NÍVEL DE AMEAÇA
+                </Label>
                 <Input
                   type="number"
-                  {...register("age", { valueAsNumber: true })}
-                  className="mt-1 bg-black border-neon-cyan text-neon-cyan"
+                  {...register("threatLevel", { valueAsNumber: true })}
+                  className="mt-1 bg-background border-neon-cyan text-foreground"
                   style={{ fontFamily: 'Rajdhani, sans-serif' }}
                 />
               </div>
-              <div>
-                <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>GÊNERO</Label>
-                <Input
-                  {...register("gender")}
-                  className="mt-1 bg-black border-neon-cyan text-neon-cyan"
-                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                />
-              </div>
-              <div>
-                <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>ALTURA (cm)</Label>
-                <Input
-                  type="number"
-                  {...register("height", { valueAsNumber: true })}
-                  className="mt-1 bg-black border-neon-cyan text-neon-cyan"
-                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                />
-              </div>
-              <div>
-                <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>PESO (kg)</Label>
-                <Input
-                  type="number"
-                  {...register("weight", { valueAsNumber: true })}
-                  className="mt-1 bg-black border-neon-cyan text-neon-cyan"
-                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                />
-              </div>
-            </div>
-            <div className="mt-4">
-              <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>RAÇA</Label>
-              <Input
-                {...register("race")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                placeholder="Ex: Humano, Meta-Humano, Alien..."
-              />
-            </div>
-          </div>
 
-          {/* Attributes */}
-          <div className="cyber-card p-4 rounded-sm" style={{
-            border: '1px solid hsl(var(--neon-magenta))',
-            boxShadow: '0 0 10px rgba(255, 0, 255, 0.2)'
-          }}>
-            <h3 className="text-neon-magenta font-bold mb-3 tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              ATRIBUTOS (1-15)
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {[
-                { name: "coordination", label: "COORDENAÇÃO" },
-                { name: "vigor", label: "VIGOR" },
-                { name: "intellect", label: "INTELECTO" },
-                { name: "attention", label: "ATENÇÃO" },
-                { name: "willpower", label: "VONTADE" },
-                { name: "prowess", label: "PROEZA" },
-              ].map((attr) => (
-                <div key={attr.name}>
-                  <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                    {attr.label}
-                  </Label>
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  LOCALIZAÇÃO
+                </Label>
+                <Input
+                  {...register("location")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                />
+              </div>
+            </div>
+
+            {/* Physical Info */}
+            <div className="cyber-card p-4 rounded-sm" style={{
+              border: '1px solid hsl(var(--neon-lime))',
+              boxShadow: '0 0 10px rgba(57, 255, 20, 0.2)'
+            }}>
+              <h3 className="text-neon-lime font-bold mb-3 tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                DADOS FÍSICOS
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>IDADE</Label>
                   <Input
                     type="number"
-                    min="1"
-                    max="15"
-                    {...register(attr.name as keyof CharacterFormData, { valueAsNumber: true })}
-                    className="mt-1 bg-black border-neon-cyan text-neon-cyan text-center font-bold"
-                    style={{ fontFamily: 'Orbitron, sans-serif' }}
+                    {...register("age", { valueAsNumber: true })}
+                    className="mt-1 bg-background border-neon-cyan text-foreground"
+                    style={{ fontFamily: 'Rajdhani, sans-serif' }}
                   />
                 </div>
-              ))}
+                <div>
+                  <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>GÊNERO</Label>
+                  <Input
+                    {...register("gender")}
+                    className="mt-1 bg-background border-neon-cyan text-foreground"
+                    style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>ALTURA (cm)</Label>
+                  <Input
+                    type="number"
+                    {...register("height", { valueAsNumber: true })}
+                    className="mt-1 bg-background border-neon-cyan text-foreground"
+                    style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>PESO (kg)</Label>
+                  <Input
+                    type="number"
+                    {...register("weight", { valueAsNumber: true })}
+                    className="mt-1 bg-background border-neon-cyan text-foreground"
+                    style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>RAÇA</Label>
+                <Input
+                  {...register("race")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  placeholder="Ex: Humano, Meta-Humano, Alien..."
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Story Fields */}
-          <div className="space-y-4">
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                CITAÇÃO PESSOAL
-              </Label>
-              <Input
-                {...register("quote")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan italic"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                placeholder='"Uma frase marcante do personagem..."'
+            {/* Attributes */}
+            <div className="cyber-card p-4 rounded-sm" style={{
+              border: '1px solid hsl(var(--neon-magenta))',
+              boxShadow: '0 0 10px rgba(255, 0, 255, 0.2)'
+            }}>
+              <h3 className="text-neon-magenta font-bold mb-3 tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                ATRIBUTOS (1-15)
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[
+                  { name: "coordination", label: "COORDENAÇÃO" },
+                  { name: "vigor", label: "VIGOR" },
+                  { name: "intellect", label: "INTELECTO" },
+                  { name: "attention", label: "ATENÇÃO" },
+                  { name: "willpower", label: "VONTADE" },
+                  { name: "prowess", label: "PROEZA" },
+                ].map((attr) => (
+                  <div key={attr.name}>
+                    <Label className="text-neon-cyan text-xs" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                      {attr.label}
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="15"
+                      {...register(attr.name as keyof CharacterFormData, { valueAsNumber: true })}
+                      className="mt-1 bg-background border-neon-cyan text-foreground text-center font-bold"
+                      style={{ fontFamily: 'Orbitron, sans-serif' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Powers */}
+            <div className="cyber-card p-4 rounded-sm" style={{
+              border: '1px solid hsl(var(--neon-magenta))',
+              boxShadow: '0 0 10px rgba(255, 0, 255, 0.2)'
+            }}>
+              <PowerSelectorSimple
+                selectedPowers={selectedPowers}
+                onPowersChange={setSelectedPowers}
               />
             </div>
 
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                ORIGEM DOS PODERES
-              </Label>
-              <Textarea
-                {...register("originStory")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan min-h-[80px]"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                placeholder="Como o personagem adquiriu seus poderes..."
-              />
+            {/* Story Fields */}
+            <div className="space-y-4">
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  CITAÇÃO PESSOAL
+                </Label>
+                <Input
+                  {...register("quote")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground italic"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  placeholder='"Uma frase marcante do personagem..."'
+                />
+              </div>
+
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  ORIGEM DOS PODERES
+                </Label>
+                <Textarea
+                  {...register("originStory")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground min-h-[80px]"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  placeholder="Como o personagem adquiriu seus poderes..."
+                />
+              </div>
+
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  APARÊNCIA
+                </Label>
+                <Textarea
+                  {...register("appearance")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground min-h-[80px]"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  placeholder="Descrição da aparência física..."
+                />
+              </div>
+
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  HISTÓRIA DE FUNDO
+                </Label>
+                <Textarea
+                  {...register("backstory")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground min-h-[80px]"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  placeholder="A história de vida do personagem..."
+                />
+              </div>
+
+              <div>
+                <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  MOTIVAÇÃO
+                </Label>
+                <Textarea
+                  {...register("motivation")}
+                  className="mt-1 bg-background border-neon-cyan text-foreground min-h-[80px]"
+                  style={{ fontFamily: 'Rajdhani, sans-serif' }}
+                  placeholder="O que motiva o personagem..."
+                />
+              </div>
             </div>
 
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                APARÊNCIA
-              </Label>
-              <Textarea
-                {...register("appearance")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan min-h-[80px]"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                placeholder="Descrição da aparência física..."
-              />
+            {/* Submit Buttons */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-neon-cyan/30">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                className="text-neon-cyan hover:bg-neon-cyan/20"
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-neon-cyan text-background hover:bg-neon-cyan/90 font-bold glow-cyan"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  "Criar Personagem"
+                )}
+              </Button>
             </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                BACKSTORY / HISTÓRICO
-              </Label>
-              <Textarea
-                {...register("backstory")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan min-h-[120px]"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                placeholder="História de vida do personagem..."
-              />
-            </div>
-
-            <div>
-              <Label className="text-neon-cyan text-sm font-bold tracking-wide" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                MOTIVAÇÃO
-              </Label>
-              <Textarea
-                {...register("motivation")}
-                className="mt-1 bg-black border-neon-cyan text-neon-cyan min-h-[80px]"
-                style={{ fontFamily: 'Rajdhani, sans-serif' }}
-                placeholder="O que motiva o personagem..."
-              />
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 rounded-sm font-bold tracking-wider transition-all hover:scale-105"
-              style={{
-                background: 'hsl(var(--neon-lime))',
-                color: '#000',
-                boxShadow: '0 0 20px rgba(57, 255, 20, 0.5)',
-                fontFamily: 'Rajdhani, sans-serif'
-              }}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 w-5 h-5 animate-spin" />
-                  CRIANDO...
-                </>
-              ) : (
-                "✓ CRIAR PERSONAGEM"
-              )}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              variant="outline"
-              className="rounded-sm font-bold tracking-wider border-2"
-              style={{
-                borderColor: 'hsl(var(--neon-red))',
-                color: 'hsl(var(--neon-red))',
-                background: 'black',
-                fontFamily: 'Rajdhani, sans-serif'
-              }}
-            >
-              ✕ CANCELAR
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+      {/* Image Cropper */}
+      {showCropper && (
+        <ImageCropper
+          isOpen={showCropper}
+          imageSrc={tempImageSrc}
+          onCropComplete={handleCropComplete}
+          onCancel={() => setShowCropper(false)}
+          aspect={1}
+        />
+      )}
+    </>
   );
 };
