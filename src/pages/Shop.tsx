@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, ShoppingCart, Zap, Star, Heart, Package, Infinity, User } from "lucide-react";
+import { Search, ShoppingCart, Zap, Star, Heart, Package, Infinity, User, Plus, Pencil, Trash2 } from "lucide-react";
+import { ShopItemModal } from "@/components/ShopItemModal";
 import type { Tables } from "@/integrations/supabase/types";
 
 type ShopItem = Tables<"shop_items">;
@@ -31,6 +32,8 @@ export default function Shop() {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ShopItem | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -65,19 +68,16 @@ export default function Shop() {
       const character = characters.find(c => c.id === characterId);
       if (!character) throw new Error("Personagem não encontrado");
 
-      // Calculate new values based on item effect
       let newXp = character.xp || 0;
       let newEnergy = character.energy || 100;
       let newDetermination = character.determination_points || 3;
 
-      // Parse effect and apply - cost is deducted from XP by default
       if (item.cost > (character.xp || 0)) {
         throw new Error("XP insuficiente para comprar este item");
       }
 
       newXp -= item.cost;
 
-      // Apply item effects
       if (item.effect) {
         const effects = item.effect.toLowerCase();
         if (effects.includes("+1 xp")) newXp += 1;
@@ -117,6 +117,30 @@ export default function Shop() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from("shop_items")
+        .delete()
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shop-items"] });
+      toast({
+        title: "Item removido",
+        description: "O item foi removido da loja.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao remover item",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -138,8 +162,28 @@ export default function Shop() {
     purchaseMutation.mutate({ item, characterId: selectedCharacterId });
   };
 
+  const handleEdit = (item: ShopItem) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (item: ShopItem) => {
+    if (confirm(`Tem certeza que deseja remover "${item.name}" da loja?`)) {
+      deleteMutation.mutate(item.id);
+    }
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleModalSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["shop-items"] });
+  };
+
   return (
-    <div className="min-h-screen bg-black pt-20 pb-8 px-4">
+    <div className="min-h-screen bg-background pt-20 pb-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -151,9 +195,18 @@ export default function Shop() {
               Adquira itens e melhorias para seus personagens
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-6 w-6 text-neon-lime" />
-            <span className="text-neon-lime font-bold">{items.length} itens disponíveis</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-6 w-6 text-neon-lime" />
+              <span className="text-neon-lime font-bold">{items.length} itens</span>
+            </div>
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-neon-lime text-background hover:bg-neon-lime/90"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Item
+            </Button>
           </div>
         </div>
 
@@ -171,7 +224,7 @@ export default function Shop() {
                 <SelectTrigger className="w-full md:w-80 bg-muted border-primary/30">
                   <SelectValue placeholder="Escolha um personagem" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-primary">
+                <SelectContent className="bg-background border-primary">
                   {characters.map((char) => (
                     <SelectItem key={char.id} value={char.id}>
                       {char.name} {char.alias && `(${char.alias})`}
@@ -215,7 +268,7 @@ export default function Shop() {
             <SelectTrigger className="w-full md:w-48 bg-muted border-primary/30">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
-            <SelectContent className="bg-black border-primary">
+            <SelectContent className="bg-background border-primary">
               <SelectItem value="all">Todos os tipos</SelectItem>
               {itemTypes.map((type) => (
                 <SelectItem key={type} value={type}>
@@ -235,12 +288,31 @@ export default function Shop() {
           <div className="text-center py-20 text-muted-foreground">
             <Package className="h-16 w-16 mx-auto mb-4 opacity-50" />
             <p>Nenhum item encontrado</p>
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              variant="outline"
+              className="mt-4 border-primary text-primary hover:bg-primary/10"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Criar primeiro item
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredItems.map((item) => (
               <Card key={item.id} className="cyber-card-interactive group">
                 <CardContent className="p-4">
+                  {/* Item Image */}
+                  {item.image_url && (
+                    <div className="w-full h-32 mb-3 rounded overflow-hidden bg-muted/30">
+                      <img 
+                        src={item.image_url} 
+                        alt={item.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
                   <div className="flex items-start justify-between mb-3">
                     <Badge 
                       variant="outline" 
@@ -249,11 +321,29 @@ export default function Shop() {
                       {itemTypeIcons[item.type] || <Package className="h-3 w-3" />}
                       {item.type}
                     </Badge>
-                    {item.unlimited && (
-                      <span title="Compra ilimitada">
-                        <Infinity className="h-4 w-4 text-neon-purple" />
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {item.unlimited && (
+                        <span title="Compra ilimitada">
+                          <Infinity className="h-4 w-4 text-neon-purple" />
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleEdit(item)}
+                      >
+                        <Pencil className="h-4 w-4 text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleDelete(item)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
 
                   <h3 className="text-lg font-bold text-primary mb-2 font-['Orbitron']">
@@ -296,6 +386,14 @@ export default function Shop() {
           </div>
         )}
       </div>
+
+      {/* Shop Item Modal */}
+      <ShopItemModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        item={editingItem}
+        onSuccess={handleModalSuccess}
+      />
     </div>
   );
 }

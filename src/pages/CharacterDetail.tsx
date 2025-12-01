@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, Skull, Zap, Users, Star, Edit } from "lucide-react";
+import { ArrowLeft, Shield, Skull, Zap, Users, Star, Edit, Dices, BookOpen, Target, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,16 @@ import { useToast } from "@/hooks/use-toast";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
 import { EditCharacterModal } from "@/components/EditCharacterModal";
 import { PowerSelector } from "@/components/PowerSelector";
+import { DiceRoller } from "@/components/DiceRoller";
+import { SpecialtyManager } from "@/components/SpecialtyManager";
+
+interface Specialty {
+  id: string;
+  name: string;
+  attribute: string;
+  bonus: number;
+  description: string | null;
+}
 
 export default function CharacterDetail() {
   const { id } = useParams();
@@ -18,8 +28,10 @@ export default function CharacterDetail() {
   const [character, setCharacter] = useState<any>(null);
   const [attributes, setAttributes] = useState<any>(null);
   const [powers, setPowers] = useState<any[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDiceRollerOpen, setIsDiceRollerOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -48,9 +60,15 @@ export default function CharacterDetail() {
         .select("*, powers_library(*)")
         .eq("character_id", id);
 
+      const { data: specialtiesData } = await supabase
+        .from("character_specialties")
+        .select("*")
+        .eq("character_id", id);
+
       setCharacter(charData);
       setAttributes(attrData);
       setPowers(powersData || []);
+      setSpecialties(specialtiesData || []);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar personagem",
@@ -86,7 +104,7 @@ export default function CharacterDetail() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <Button
           variant="ghost"
           onClick={() => navigate("/")}
@@ -95,13 +113,23 @@ export default function CharacterDetail() {
           <ArrowLeft className="mr-2 w-4 h-4" />
           Voltar
         </Button>
-        <Button
-          onClick={() => setIsEditModalOpen(true)}
-          className="bg-neon-cyan text-background hover:bg-neon-cyan/90 font-bold glow-cyan"
-        >
-          <Edit className="mr-2 w-4 h-4" />
-          Editar Ficha
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setIsDiceRollerOpen(true)}
+            variant="outline"
+            className="border-neon-lime text-neon-lime hover:bg-neon-lime/20"
+          >
+            <Dices className="mr-2 w-4 h-4" />
+            Rolagem
+          </Button>
+          <Button
+            onClick={() => setIsEditModalOpen(true)}
+            className="bg-neon-cyan text-background hover:bg-neon-cyan/90 font-bold glow-cyan"
+          >
+            <Edit className="mr-2 w-4 h-4" />
+            Editar Ficha
+          </Button>
+        </div>
       </div>
 
       {/* Header Section */}
@@ -118,14 +146,14 @@ export default function CharacterDetail() {
           </div>
 
           <div className="flex-1 space-y-4">
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between flex-wrap gap-4">
               <div>
                 <h1 className="text-4xl font-bold glow-text-cyan mb-2">{character.name}</h1>
                 {character.alias && (
                   <p className="text-xl text-neon-magenta">"{character.alias}"</p>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {character.type === "hero" ? (
                   <Badge className="bg-neon-green/20 text-neon-green border-neon-green text-lg px-4 py-2">
                     <Shield className="w-5 h-5 mr-2" />
@@ -138,7 +166,7 @@ export default function CharacterDetail() {
                   </Badge>
                 ) : (
                   <Badge className="bg-neon-cyan/20 text-neon-cyan border-neon-cyan text-lg px-4 py-2">
-                    Neutral
+                    Neutro
                   </Badge>
                 )}
                 <Badge className="text-2xl font-bold px-4 py-2 bg-neon-cyan/20 text-neon-cyan border-neon-cyan">
@@ -249,10 +277,69 @@ export default function CharacterDetail() {
           />
         </Card>
 
+        {/* Specialties */}
+        <SpecialtyManager
+          characterId={id!}
+          specialties={specialties}
+          onUpdate={fetchCharacter}
+        />
+
+        {/* Determination Points */}
+        <Card className="cyber-card p-6">
+          <h2 className="text-2xl font-bold text-neon-orange mb-4 flex items-center">
+            <Heart className="mr-2" />
+            Pontos de Determinação
+          </h2>
+          <div className="flex items-center gap-4">
+            <div className="text-6xl font-bold text-neon-orange">
+              {character.determination_points || 0}
+            </div>
+            <p className="text-muted-foreground">
+              Pontos disponíveis para ações heroicas e reviravoltas dramáticas.
+            </p>
+          </div>
+        </Card>
+
+        {/* Appearance */}
+        {character.appearance && (
+          <Card className="cyber-card p-6">
+            <h2 className="text-2xl font-bold text-neon-purple mb-4 flex items-center">
+              <Users className="mr-2" />
+              Aparência
+            </h2>
+            <p className="text-foreground leading-relaxed">{character.appearance}</p>
+          </Card>
+        )}
+
+        {/* Backstory */}
+        {character.backstory && (
+          <Card className="cyber-card p-6">
+            <h2 className="text-2xl font-bold text-neon-lime mb-4 flex items-center">
+              <BookOpen className="mr-2" />
+              História de Fundo
+            </h2>
+            <p className="text-foreground leading-relaxed">{character.backstory}</p>
+          </Card>
+        )}
+
+        {/* Motivation */}
+        {character.motivation && (
+          <Card className="cyber-card p-6">
+            <h2 className="text-2xl font-bold text-neon-yellow mb-4 flex items-center">
+              <Target className="mr-2" />
+              Motivação
+            </h2>
+            <p className="text-foreground leading-relaxed">{character.motivation}</p>
+          </Card>
+        )}
+
         {/* Origin Story */}
         {character.origin_story && (
           <Card className="cyber-card p-6 lg:col-span-2">
-            <h2 className="text-2xl font-bold text-neon-cyan mb-4">Origem dos Poderes</h2>
+            <h2 className="text-2xl font-bold text-neon-cyan mb-4 flex items-center">
+              <Zap className="mr-2" />
+              Origem dos Poderes
+            </h2>
             <p className="text-foreground leading-relaxed">{character.origin_story}</p>
           </Card>
         )}
@@ -265,6 +352,25 @@ export default function CharacterDetail() {
         characterId={id!}
         onSuccess={fetchCharacter}
       />
+
+      {/* Dice Roller Modal */}
+      {attributes && (
+        <DiceRoller
+          isOpen={isDiceRollerOpen}
+          onClose={() => setIsDiceRollerOpen(false)}
+          characterName={character.name}
+          attributes={{
+            coordination: attributes.coordination,
+            vigor: attributes.vigor,
+            intellect: attributes.intellect,
+            attention: attributes.attention,
+            willpower: attributes.willpower,
+            prowess: attributes.prowess,
+          }}
+          powers={powers}
+          specialties={specialties}
+        />
+      )}
     </div>
   );
 }
