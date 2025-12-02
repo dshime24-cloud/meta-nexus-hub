@@ -12,6 +12,8 @@ import { EditCharacterModal } from "@/components/EditCharacterModal";
 import { PowerSelector } from "@/components/PowerSelector";
 import { DiceRoller } from "@/components/DiceRoller";
 import { SpecialtyManager } from "@/components/SpecialtyManager";
+import { CharacterInventory } from "@/components/CharacterInventory";
+import { CombatButton } from "@/components/CombatButton";
 
 interface Specialty {
   id: string;
@@ -122,6 +124,7 @@ export default function CharacterDetail() {
             <Dices className="mr-2 w-4 h-4" />
             Rolagem
           </Button>
+          <CombatButton characterId={id!} />
           <Button
             onClick={() => setIsEditModalOpen(true)}
             className="bg-neon-cyan text-background hover:bg-neon-cyan/90 font-bold glow-cyan"
@@ -281,7 +284,16 @@ export default function CharacterDetail() {
         <SpecialtyManager
           characterId={id!}
           specialties={specialties}
+          powers={powers}
           onUpdate={fetchCharacter}
+        />
+
+        {/* Inventory */}
+        <CharacterInventory
+          characterId={id!}
+          currentXp={character.xp || 0}
+          currentEnergy={character.energy || 100}
+          currentDetermination={character.determination_points || 0}
         />
 
         {/* Determination Points */}
@@ -359,6 +371,7 @@ export default function CharacterDetail() {
           isOpen={isDiceRollerOpen}
           onClose={() => setIsDiceRollerOpen(false)}
           characterName={character.name}
+          characterId={id!}
           attributes={{
             coordination: attributes.coordination,
             vigor: attributes.vigor,
@@ -369,6 +382,7 @@ export default function CharacterDetail() {
           }}
           powers={powers}
           specialties={specialties}
+          currentDetermination={character.determination_points || 0}
         />
       )}
     </div>

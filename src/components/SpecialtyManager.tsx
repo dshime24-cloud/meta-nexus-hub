@@ -16,11 +16,22 @@ interface Specialty {
   attribute: string;
   bonus: number;
   description: string | null;
+  power_id?: string | null;
+}
+
+interface Power {
+  id: string;
+  custom_name: string | null;
+  level: number;
+  powers_library: {
+    name: string;
+  } | null;
 }
 
 interface SpecialtyManagerProps {
   characterId: string;
   specialties: Specialty[];
+  powers: Power[];
   onUpdate: () => void;
 }
 
@@ -39,13 +50,15 @@ const bonusColors: Record<number, string> = {
   3: "bg-neon-magenta/20 text-neon-magenta border-neon-magenta",
 };
 
-export function SpecialtyManager({ characterId, specialties, onUpdate }: SpecialtyManagerProps) {
+export function SpecialtyManager({ characterId, specialties, powers, onUpdate }: SpecialtyManagerProps) {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [specialtyType, setSpecialtyType] = useState<"attribute" | "power">("attribute");
   const [newSpecialty, setNewSpecialty] = useState({
     name: "",
     attribute: "coordination",
+    powerId: "",
     bonus: 1,
     description: "",
   });
@@ -60,6 +73,15 @@ export function SpecialtyManager({ characterId, specialties, onUpdate }: Special
       return;
     }
 
+    if (specialtyType === "power" && !newSpecialty.powerId) {
+      toast({
+        title: "Poder obrigatório",
+        description: "Selecione um poder para a especialidade",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { error } = await supabase
@@ -67,7 +89,8 @@ export function SpecialtyManager({ characterId, specialties, onUpdate }: Special
         .insert({
           character_id: characterId,
           name: newSpecialty.name.trim(),
-          attribute: newSpecialty.attribute,
+          attribute: specialtyType === "attribute" ? newSpecialty.attribute : "",
+          power_id: specialtyType === "power" ? newSpecialty.powerId : null,
           bonus: newSpecialty.bonus,
           description: newSpecialty.description.trim() || null,
         });
@@ -82,9 +105,11 @@ export function SpecialtyManager({ characterId, specialties, onUpdate }: Special
       setNewSpecialty({
         name: "",
         attribute: "coordination",
+        powerId: "",
         bonus: 1,
         description: "",
       });
+      setSpecialtyType("attribute");
       setIsModalOpen(false);
       onUpdate();
     } catch (error: any) {
@@ -161,7 +186,10 @@ export function SpecialtyManager({ characterId, specialties, onUpdate }: Special
                 <div>
                   <p className="font-medium text-foreground">{specialty.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {getAttributeLabel(specialty.attribute)}
+                    {specialty.power_id 
+                      ? `Poder: ${powers.find(p => p.id === specialty.power_id)?.custom_name || powers.find(p => p.id === specialty.power_id)?.powers_library?.name || "Desconhecido"}`
+                      : getAttributeLabel(specialty.attribute)
+                    }
                     {specialty.description && ` • ${specialty.description}`}
                   </p>
                 </div>
@@ -190,6 +218,23 @@ export function SpecialtyManager({ characterId, specialties, onUpdate }: Special
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Type Selection */}
+            <div className="space-y-2">
+              <Label className="text-primary">Tipo de Especialidade</Label>
+              <Select
+                value={specialtyType}
+                onValueChange={(value: "attribute" | "power") => setSpecialtyType(value)}
+              >
+                <SelectTrigger className="cyber-input">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-primary">
+                  <SelectItem value="attribute">Atributo</SelectItem>
+                  <SelectItem value="power">Poder</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label className="text-primary">Nome *</Label>
               <Input
@@ -200,24 +245,45 @@ export function SpecialtyManager({ characterId, specialties, onUpdate }: Special
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-primary">Atributo Relacionado</Label>
-              <Select
-                value={newSpecialty.attribute}
-                onValueChange={(value) => setNewSpecialty({ ...newSpecialty, attribute: value })}
-              >
-                <SelectTrigger className="cyber-input">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background border-primary">
-                  {attributeOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {specialtyType === "attribute" ? (
+              <div className="space-y-2">
+                <Label className="text-primary">Atributo Relacionado</Label>
+                <Select
+                  value={newSpecialty.attribute}
+                  onValueChange={(value) => setNewSpecialty({ ...newSpecialty, attribute: value })}
+                >
+                  <SelectTrigger className="cyber-input">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-primary">
+                    {attributeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label className="text-primary">Poder Relacionado</Label>
+                <Select
+                  value={newSpecialty.powerId}
+                  onValueChange={(value) => setNewSpecialty({ ...newSpecialty, powerId: value })}
+                >
+                  <SelectTrigger className="cyber-input">
+                    <SelectValue placeholder="Selecione um poder" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-primary">
+                    {powers.map((power) => (
+                      <SelectItem key={power.id} value={power.id}>
+                        {power.custom_name || power.powers_library?.name || "Poder"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label className="text-primary">Bônus</Label>

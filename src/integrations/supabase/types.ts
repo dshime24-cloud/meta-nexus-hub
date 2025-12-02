@@ -55,6 +55,45 @@ export type Database = {
           },
         ]
       }
+      character_inventory: {
+        Row: {
+          acquired_at: string
+          character_id: string
+          id: string
+          item_id: string
+          quantity: number
+        }
+        Insert: {
+          acquired_at?: string
+          character_id: string
+          id?: string
+          item_id: string
+          quantity?: number
+        }
+        Update: {
+          acquired_at?: string
+          character_id?: string
+          id?: string
+          item_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_inventory_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_inventory_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       character_powers: {
         Row: {
           character_id: string
@@ -112,6 +151,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          power_id: string | null
         }
         Insert: {
           attribute: string
@@ -121,6 +161,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          power_id?: string | null
         }
         Update: {
           attribute?: string
@@ -130,6 +171,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          power_id?: string | null
         }
         Relationships: [
           {
@@ -137,6 +179,13 @@ export type Database = {
             columns: ["character_id"]
             isOneToOne: false
             referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_specialties_power_id_fkey"
+            columns: ["power_id"]
+            isOneToOne: false
+            referencedRelation: "character_powers"
             referencedColumns: ["id"]
           },
         ]
@@ -224,6 +273,61 @@ export type Database = {
           xp?: number | null
         }
         Relationships: []
+      }
+      combat_logs: {
+        Row: {
+          attacker_id: string
+          attacker_roll: number
+          combat_date: string
+          defender_id: string
+          defender_roll: number
+          details: Json | null
+          id: string
+          winner_id: string | null
+        }
+        Insert: {
+          attacker_id: string
+          attacker_roll: number
+          combat_date?: string
+          defender_id: string
+          defender_roll: number
+          details?: Json | null
+          id?: string
+          winner_id?: string | null
+        }
+        Update: {
+          attacker_id?: string
+          attacker_roll?: number
+          combat_date?: string
+          defender_id?: string
+          defender_roll?: number
+          details?: Json | null
+          id?: string
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combat_logs_attacker_id_fkey"
+            columns: ["attacker_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combat_logs_defender_id_fkey"
+            columns: ["defender_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combat_logs_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       locations: {
         Row: {
