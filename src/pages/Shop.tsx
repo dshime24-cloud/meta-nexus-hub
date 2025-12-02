@@ -68,44 +68,54 @@ export default function Shop() {
       const character = characters.find(c => c.id === characterId);
       if (!character) throw new Error("Personagem não encontrado");
 
-      let newXp = character.xp || 0;
-      let newEnergy = character.energy || 100;
-      let newDetermination = character.determination_points || 3;
-
       if (item.cost > (character.xp || 0)) {
         throw new Error("XP insuficiente para comprar este item");
       }
 
-      newXp -= item.cost;
-
-      if (item.effect) {
-        const effects = item.effect.toLowerCase();
-        if (effects.includes("+1 xp")) newXp += 1;
-        if (effects.includes("+1 eh") || effects.includes("+1 energia")) newEnergy += 1;
-        if (effects.includes("+1 fh") || effects.includes("+1 determinação")) newDetermination += 1;
-        if (effects.includes("+5 xp")) newXp += 5;
-        if (effects.includes("+10 xp")) newXp += 10;
-        if (effects.includes("+5 eh") || effects.includes("+5 energia")) newEnergy += 5;
-        if (effects.includes("+10 eh") || effects.includes("+10 energia")) newEnergy += 10;
-      }
-
-      const { error } = await supabase
+      // Deduct XP
+      const newXp = (character.xp || 0) - item.cost;
+      const { error: xpError } = await supabase
         .from("characters")
-        .update({
-          xp: newXp,
-          energy: newEnergy,
-          determination_points: newDetermination,
-        })
+        .update({ xp: newXp })
         .eq("id", characterId);
 
-      if (error) throw error;
+      if (xpError) throw xpError;
+
+      // Add to inventory
+      const { data: existing } = await supabase
+        .from("character_inventory")
+        .select("*")
+        .eq("character_id", characterId)
+        .eq("item_id", item.id)
+        .single();
+
+      if (existing) {
+        // Update quantity
+        const { error: updateError } = await supabase
+          .from("character_inventory")
+          .update({ quantity: existing.quantity + 1 })
+          .eq("id", existing.id);
+        if (updateError) throw updateError;
+      } else {
+        // Insert new
+        const { error: insertError } = await supabase
+          .from("character_inventory")
+          .insert({
+            character_id: characterId,
+            item_id: item.id,
+            quantity: 1,
+          });
+        if (insertError) throw insertError;
+      }
+
       return { item, character };
     },
     onSuccess: ({ item, character }) => {
       queryClient.invalidateQueries({ queryKey: ["characters-for-shop"] });
+      queryClient.invalidateQueries({ queryKey: ["character-inventory", character.id] });
       toast({
-        title: "Compra realizada!",
-        description: `${item.name} foi aplicado a ${character.name}`,
+        title: "Item comprado!",
+        description: `${item.name} foi adicionado ao inventário de ${character.name}`,
       });
     },
     onError: (error: Error) => {

@@ -1,15 +1,21 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dices, Zap, Star, Plus } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Dices, Zap, Star, Plus, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Specialty {
   id: string;
   name: string;
   attribute: string;
   bonus: number;
+  power_id?: string | null;
 }
 
 interface Power {
@@ -25,6 +31,7 @@ interface DiceRollerProps {
   isOpen: boolean;
   onClose: () => void;
   characterName: string;
+  characterId: string;
   attributes: {
     coordination: number;
     vigor: number;
@@ -35,6 +42,7 @@ interface DiceRollerProps {
   };
   powers: Power[];
   specialties: Specialty[];
+  currentDetermination: number;
 }
 
 interface RollResult {
@@ -56,14 +64,26 @@ const attributeLabels: Record<string, string> = {
   prowess: "Proeza",
 };
 
-export function DiceRoller({ isOpen, onClose, characterName, attributes, powers, specialties }: DiceRollerProps) {
+export function DiceRoller({ 
+  isOpen, 
+  onClose, 
+  characterName, 
+  characterId,
+  attributes, 
+  powers, 
+  specialties,
+  currentDetermination 
+}: DiceRollerProps) {
   const [rollResult, setRollResult] = useState<RollResult | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
+  const [useDetermination, setUseDetermination] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const rollDice = () => Math.floor(Math.random() * 6) + 1;
 
-  const performRoll = (type: "attribute" | "power", name: string, baseValue: number, attributeKey?: string) => {
+  const performRoll = async (type: "attribute" | "power", name: string, baseValue: number, attributeKey?: string, powerId?: string) => {
     setIsRolling(true);
     
     // Find applicable specialty
@@ -73,13 +93,29 @@ export function DiceRoller({ isOpen, onClose, characterName, attributes, powers,
     if (selectedSpecialty) {
       const specialty = specialties.find(s => s.id === selectedSpecialty);
       if (specialty) {
-        if (type === "attribute" && specialty.attribute === attributeKey) {
-          specialtyBonus = specialty.bonus;
-          specialtyName = specialty.name;
-        } else if (type === "power") {
+        // Check if specialty matches the attribute or power
+        const matchesAttribute = type === "attribute" && specialty.attribute === attributeKey && !specialty.power_id;
+        const matchesPower = type === "power" && specialty.power_id === powerId;
+        
+        if (matchesAttribute || matchesPower) {
           specialtyBonus = specialty.bonus;
           specialtyName = specialty.name;
         }
+      }
+    }
+
+    // Determination bonus
+    let determinationBonus = 0;
+    if (useDetermination && currentDetermination > 0) {
+      determinationBonus = 2;
+      // Deduct determination point
+      const { error } = await supabase
+        .from("characters")
+        .update({ determination_points: currentDetermination - 1 })
+        .eq("id", characterId);
+      
+      if (!error) {
+        queryClient.invalidateQueries({ queryKey: ["character", characterId] });
       }
     }
 
@@ -94,7 +130,7 @@ export function DiceRoller({ isOpen, onClose, characterName, attributes, powers,
         diceRoll: tempRoll,
         specialtyBonus,
         specialtyName,
-        total: baseValue + tempRoll + specialtyBonus,
+        total: baseValue + tempRoll + specialtyBonus + determinationBonus,
       });
       count++;
       if (count >= 10) {
@@ -107,10 +143,18 @@ export function DiceRoller({ isOpen, onClose, characterName, attributes, powers,
           diceRoll: finalRoll,
           specialtyBonus,
           specialtyName,
-          total: baseValue + finalRoll + specialtyBonus,
+          total: baseValue + finalRoll + specialtyBonus + determinationBonus,
         });
         setIsRolling(false);
         setSelectedSpecialty(null);
+        setUseDetermination(false);
+
+        if (determinationBonus > 0) {
+          toast({
+            title: "Determinação Gasta!",
+            description: "Você gastou 1 ponto de determinação para +2 no teste.",
+          });
+        }
       }
     }, 80);
   };
@@ -121,11 +165,15 @@ export function DiceRoller({ isOpen, onClose, characterName, attributes, powers,
 
   const handlePowerRoll = (power: Power) => {
     const name = power.custom_name || power.powers_library?.name || "Poder";
-    performRoll("power", name, power.level);
+    performRoll("power", name, power.level, undefined, power.id);
   };
 
   const getSpecialtiesForAttribute = (attributeKey: string) => {
-    return specialties.filter(s => s.attribute === attributeKey);
+    return specialties.filter(s => s.attribute === attributeKey && !s.power_id);
+  };
+
+  const getSpecialtiesForPower = (powerId: string) => {
+    return specialties.filter(s => s.power_id === powerId);
   };
 
   return (
@@ -174,41 +222,64 @@ export function DiceRoller({ isOpen, onClose, characterName, attributes, powers,
             </div>
           )}
 
-          {/* Specialty Selection */}
-          {specialties.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-primary">Selecione uma Especialidade (opcional):</p>
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "cursor-pointer transition-all",
-                    !selectedSpecialty 
-                      ? "bg-primary/20 border-primary text-primary" 
-                      : "hover:bg-primary/10"
-                  )}
-                  onClick={() => setSelectedSpecialty(null)}
-                >
-                  Nenhuma
+          {/* Determination & Specialty Selection */}
+          <div className="space-y-4 p-4 bg-muted/20 border border-primary/30 rounded-lg">
+            {/* Determination Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Heart className="w-4 h-4 text-neon-orange" />
+                <Label htmlFor="use-determination" className="text-sm font-medium text-primary">
+                  Gastar Determinação (+2)
+                </Label>
+                <Badge variant="outline" className="border-neon-orange text-neon-orange">
+                  {currentDetermination} FH
                 </Badge>
-                {specialties.map((spec) => (
+              </div>
+              <Switch
+                id="use-determination"
+                checked={useDetermination}
+                onCheckedChange={setUseDetermination}
+                disabled={currentDetermination <= 0 || isRolling}
+              />
+            </div>
+
+            {/* Specialty Selection */}
+            {specialties.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-primary">Especialidade (opcional):</p>
+                <div className="flex flex-wrap gap-2">
                   <Badge
-                    key={spec.id}
                     variant="outline"
                     className={cn(
                       "cursor-pointer transition-all",
-                      selectedSpecialty === spec.id 
-                        ? "bg-neon-lime/20 border-neon-lime text-neon-lime" 
-                        : "hover:bg-neon-lime/10"
+                      !selectedSpecialty 
+                        ? "bg-primary/20 border-primary text-primary" 
+                        : "hover:bg-primary/10"
                     )}
-                    onClick={() => setSelectedSpecialty(spec.id)}
+                    onClick={() => setSelectedSpecialty(null)}
                   >
-                    {spec.name} (+{spec.bonus} {attributeLabels[spec.attribute]})
+                    Nenhuma
                   </Badge>
-                ))}
+                  {specialties.map((spec) => (
+                    <Badge
+                      key={spec.id}
+                      variant="outline"
+                      className={cn(
+                        "cursor-pointer transition-all",
+                        selectedSpecialty === spec.id 
+                          ? "bg-neon-lime/20 border-neon-lime text-neon-lime" 
+                          : "hover:bg-neon-lime/10"
+                      )}
+                      onClick={() => setSelectedSpecialty(spec.id)}
+                    >
+                      {spec.name} (+{spec.bonus})
+                      {spec.power_id ? " [Poder]" : ` ${attributeLabels[spec.attribute]}`}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Attributes Section */}
           <div className="space-y-3">
@@ -250,20 +321,30 @@ export function DiceRoller({ isOpen, onClose, characterName, attributes, powers,
                 Poderes
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {powers.map((power) => (
-                  <Button
-                    key={power.id}
-                    variant="outline"
-                    className="h-auto py-3 flex flex-col items-center gap-1 border-neon-magenta/50 hover:border-neon-magenta hover:bg-neon-magenta/10"
-                    onClick={() => handlePowerRoll(power)}
-                    disabled={isRolling}
-                  >
-                    <span className="text-sm text-muted-foreground">
-                      {power.custom_name || power.powers_library?.name}
-                    </span>
-                    <span className="text-xl font-bold text-neon-magenta">Nível {power.level}</span>
-                  </Button>
-                ))}
+                {powers.map((power) => {
+                  const powerSpecialties = getSpecialtiesForPower(power.id);
+                  return (
+                    <Button
+                      key={power.id}
+                      variant="outline"
+                      className="h-auto py-3 flex flex-col items-center gap-1 border-neon-magenta/50 hover:border-neon-magenta hover:bg-neon-magenta/10"
+                      onClick={() => handlePowerRoll(power)}
+                      disabled={isRolling}
+                    >
+                      <span className="text-sm text-muted-foreground">
+                        {power.custom_name || power.powers_library?.name}
+                      </span>
+                      <span className="text-xl font-bold text-neon-magenta">Nível {power.level}</span>
+                      {powerSpecialties.length > 0 && (
+                        <div className="flex gap-1">
+                          {powerSpecialties.map(s => (
+                            <span key={s.id} className="text-xs text-neon-lime">+{s.bonus}</span>
+                          ))}
+                        </div>
+                      )}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           )}
