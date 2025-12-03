@@ -12,6 +12,8 @@ import Relationships from "./pages/Relationships";
 import StoryArcs from "./pages/StoryArcs";
 import Shop from "./pages/Shop";
 import Maps from "./pages/Maps";
+import Teams from "./pages/Teams";
+import Crafting from "./pages/Crafting";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +34,8 @@ const App = () => (
           <Route path="/historias" element={<StoryArcs />} />
           <Route path="/missoes" element={<Missions />} />
           <Route path="/mapas" element={<Maps />} />
+          <Route path="/equipes" element={<Teams />} />
+          <Route path="/crafting" element={<Crafting />} />
           <Route path="/linha-tempo" element={<div className="p-8 text-center text-muted-foreground">Linha do Tempo em desenvolvimento...</div>} />
           <Route path="/tempo" element={<div className="p-8 text-center text-muted-foreground">Tempo em desenvolvimento...</div>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

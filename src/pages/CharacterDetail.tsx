@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, Skull, Zap, Users, Star, Edit, Dices, BookOpen, Target, Heart } from "lucide-react";
+import { ArrowLeft, Shield, Skull, Zap, Users, Star, Edit, Dices, BookOpen, Target, Heart, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
@@ -14,6 +15,8 @@ import { DiceRoller } from "@/components/DiceRoller";
 import { SpecialtyManager } from "@/components/SpecialtyManager";
 import { CharacterInventory } from "@/components/CharacterInventory";
 import { CombatButton } from "@/components/CombatButton";
+import { ProgressionSystem } from "@/components/ProgressionSystem";
+import { CraftingSystem } from "@/components/CraftingSystem";
 
 interface Specialty {
   id: string;
@@ -232,130 +235,164 @@ export default function CharacterDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Attributes Radar */}
-        <Card className="cyber-card p-6">
-          <h2 className="text-2xl font-bold text-neon-cyan mb-6 flex items-center">
-            <Star className="mr-2" />
-            Atributos
-          </h2>
-          {attributes && (
-            <>
-              <ResponsiveContainer width="100%" height={300}>
-                <RadarChart data={radarData}>
-                  <PolarGrid stroke="hsl(var(--neon-cyan))" strokeOpacity={0.3} />
-                  <PolarAngleAxis 
-                    dataKey="attribute" 
-                    tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
-                  />
-                  <PolarRadiusAxis angle={90} domain={[0, 15]} tick={{ fill: 'hsl(var(--foreground))' }} />
-                  <Radar
-                    name="Atributos"
-                    dataKey="value"
-                    stroke="hsl(var(--neon-cyan))"
-                    fill="hsl(var(--neon-cyan))"
-                    fillOpacity={0.3}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-              
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                {radarData.map((attr) => (
-                  <div key={attr.attribute} className="flex items-center justify-between p-3 bg-muted/50 rounded">
-                    <span className="text-sm">{attr.attribute}</span>
-                    <span className="text-neon-cyan font-bold text-lg">{attr.value}</span>
+      <Tabs defaultValue="stats" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-6 bg-muted/50 border border-primary/30">
+          <TabsTrigger value="stats" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Star className="w-4 h-4 mr-2" /> Atributos
+          </TabsTrigger>
+          <TabsTrigger value="progression" className="data-[state=active]:bg-neon-magenta data-[state=active]:text-primary-foreground">
+            <TrendingUp className="w-4 h-4 mr-2" /> Progressão
+          </TabsTrigger>
+          <TabsTrigger value="inventory" className="data-[state=active]:bg-neon-orange data-[state=active]:text-primary-foreground">
+            <Heart className="w-4 h-4 mr-2" /> Inventário
+          </TabsTrigger>
+          <TabsTrigger value="story" className="data-[state=active]:bg-neon-lime data-[state=active]:text-primary-foreground">
+            <BookOpen className="w-4 h-4 mr-2" /> História
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="stats" className="animate-slide-up">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Attributes Radar */}
+            <Card className="cyber-card p-6">
+              <h2 className="text-2xl font-bold text-neon-cyan mb-6 flex items-center font-space">
+                <Star className="mr-2" />
+                Atributos
+              </h2>
+              {attributes && (
+                <>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RadarChart data={radarData}>
+                      <PolarGrid stroke="hsl(var(--neon-cyan))" strokeOpacity={0.3} />
+                      <PolarAngleAxis 
+                        dataKey="attribute" 
+                        tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+                      />
+                      <PolarRadiusAxis angle={90} domain={[0, 15]} tick={{ fill: 'hsl(var(--foreground))' }} />
+                      <Radar
+                        name="Atributos"
+                        dataKey="value"
+                        stroke="hsl(var(--neon-cyan))"
+                        fill="hsl(var(--neon-cyan))"
+                        fillOpacity={0.3}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                  
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    {radarData.map((attr) => (
+                      <div key={attr.attribute} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-primary/20 hover:border-primary/50 transition-colors">
+                        <span className="text-sm">{attr.attribute}</span>
+                        <span className="text-neon-cyan font-bold text-lg">{attr.value}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </>
+              )}
+            </Card>
+
+            {/* Powers */}
+            <Card className="cyber-card p-6">
+              <PowerSelector
+                characterId={id!}
+                existingPowers={powers}
+                onUpdate={fetchCharacter}
+              />
+            </Card>
+
+            {/* Specialties */}
+            <SpecialtyManager
+              characterId={id!}
+              specialties={specialties}
+              powers={powers}
+              onUpdate={fetchCharacter}
+            />
+
+            {/* Determination Points */}
+            <Card className="cyber-card-orange p-6">
+              <h2 className="text-2xl font-bold text-neon-orange mb-4 flex items-center font-space">
+                <Heart className="mr-2" />
+                Pontos de Determinação
+              </h2>
+              <div className="flex items-center gap-4">
+                <div className="text-6xl font-bold text-neon-orange animate-glow-pulse">
+                  {character.determination_points || 0}
+                </div>
+                <p className="text-muted-foreground">
+                  Pontos disponíveis para ações heroicas e reviravoltas dramáticas.
+                </p>
               </div>
-            </>
-          )}
-        </Card>
-
-        {/* Powers */}
-        <Card className="cyber-card p-6">
-          <PowerSelector
-            characterId={id!}
-            existingPowers={powers}
-            onUpdate={fetchCharacter}
-          />
-        </Card>
-
-        {/* Specialties */}
-        <SpecialtyManager
-          characterId={id!}
-          specialties={specialties}
-          powers={powers}
-          onUpdate={fetchCharacter}
-        />
-
-        {/* Inventory */}
-        <CharacterInventory
-          characterId={id!}
-          currentXp={character.xp || 0}
-          currentEnergy={character.energy || 100}
-          currentDetermination={character.determination_points || 0}
-        />
-
-        {/* Determination Points */}
-        <Card className="cyber-card p-6">
-          <h2 className="text-2xl font-bold text-neon-orange mb-4 flex items-center">
-            <Heart className="mr-2" />
-            Pontos de Determinação
-          </h2>
-          <div className="flex items-center gap-4">
-            <div className="text-6xl font-bold text-neon-orange">
-              {character.determination_points || 0}
-            </div>
-            <p className="text-muted-foreground">
-              Pontos disponíveis para ações heroicas e reviravoltas dramáticas.
-            </p>
+            </Card>
           </div>
-        </Card>
+        </TabsContent>
 
-        {/* Appearance */}
-        {character.appearance && (
-          <Card className="cyber-card p-6">
-            <h2 className="text-2xl font-bold text-neon-purple mb-4 flex items-center">
-              <Users className="mr-2" />
-              Aparência
-            </h2>
-            <p className="text-foreground leading-relaxed">{character.appearance}</p>
-          </Card>
-        )}
+        <TabsContent value="progression" className="animate-slide-up">
+          <ProgressionSystem character={character} attributes={attributes} />
+        </TabsContent>
 
-        {/* Backstory */}
-        {character.backstory && (
-          <Card className="cyber-card p-6">
-            <h2 className="text-2xl font-bold text-neon-lime mb-4 flex items-center">
-              <BookOpen className="mr-2" />
-              História de Fundo
-            </h2>
-            <p className="text-foreground leading-relaxed">{character.backstory}</p>
-          </Card>
-        )}
+        <TabsContent value="inventory" className="animate-slide-up">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <CharacterInventory
+              characterId={id!}
+              currentXp={character.xp || 0}
+              currentEnergy={character.energy || 100}
+              currentDetermination={character.determination_points || 0}
+            />
+            <CraftingSystem
+              characterId={id!}
+              characterLevel={character.level || 1}
+            />
+          </div>
+        </TabsContent>
 
-        {/* Motivation */}
-        {character.motivation && (
-          <Card className="cyber-card p-6">
-            <h2 className="text-2xl font-bold text-neon-yellow mb-4 flex items-center">
-              <Target className="mr-2" />
-              Motivação
-            </h2>
-            <p className="text-foreground leading-relaxed">{character.motivation}</p>
-          </Card>
-        )}
+        <TabsContent value="story" className="animate-slide-up">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Appearance */}
+            {character.appearance && (
+              <Card className="cyber-card-magenta p-6">
+                <h2 className="text-2xl font-bold text-neon-magenta mb-4 flex items-center font-space">
+                  <Users className="mr-2" />
+                  Aparência
+                </h2>
+                <p className="text-foreground leading-relaxed">{character.appearance}</p>
+              </Card>
+            )}
 
-        {/* Origin Story */}
-        {character.origin_story && (
-          <Card className="cyber-card p-6 lg:col-span-2">
-            <h2 className="text-2xl font-bold text-neon-cyan mb-4 flex items-center">
-              <Zap className="mr-2" />
-              Origem dos Poderes
-            </h2>
-            <p className="text-foreground leading-relaxed">{character.origin_story}</p>
-          </Card>
-        )}
-      </div>
+            {/* Backstory */}
+            {character.backstory && (
+              <Card className="cyber-card p-6">
+                <h2 className="text-2xl font-bold text-neon-lime mb-4 flex items-center font-space">
+                  <BookOpen className="mr-2" />
+                  História de Fundo
+                </h2>
+                <p className="text-foreground leading-relaxed">{character.backstory}</p>
+              </Card>
+            )}
+
+            {/* Motivation */}
+            {character.motivation && (
+              <Card className="cyber-card-orange p-6">
+                <h2 className="text-2xl font-bold text-neon-yellow mb-4 flex items-center font-space">
+                  <Target className="mr-2" />
+                  Motivação
+                </h2>
+                <p className="text-foreground leading-relaxed">{character.motivation}</p>
+              </Card>
+            )}
+
+            {/* Origin Story */}
+            {character.origin_story && (
+              <Card className="cyber-card p-6 lg:col-span-2">
+                <h2 className="text-2xl font-bold text-neon-cyan mb-4 flex items-center font-space">
+                  <Zap className="mr-2" />
+                  Origem dos Poderes
+                </h2>
+                <p className="text-foreground leading-relaxed">{character.origin_story}</p>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Modal */}
       <EditCharacterModal
