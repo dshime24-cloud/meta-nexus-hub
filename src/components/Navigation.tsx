@@ -1,16 +1,16 @@
 import { Link, useLocation } from "react-router-dom";
-import { Database, ShoppingCart, Zap, Users, BookOpen, Target, Map, Clock, Timer } from "lucide-react";
+import { Database, ShoppingCart, Zap, Users, BookOpen, Target, Map, Clock, Timer, UsersRound, Hammer } from "lucide-react";
 
 const navItems = [
   { name: "FICHAS", path: "/", icon: Database },
   { name: "LOJA", path: "/loja", icon: ShoppingCart },
   { name: "PODERES", path: "/poderes", icon: Zap },
   { name: "RELAÇÕES", path: "/relacoes", icon: Users },
+  { name: "EQUIPES", path: "/equipes", icon: UsersRound },
+  { name: "CRAFTING", path: "/crafting", icon: Hammer },
   { name: "HISTÓRIAS", path: "/historias", icon: BookOpen },
   { name: "MISSÕES", path: "/missoes", icon: Target },
   { name: "MAPAS", path: "/mapas", icon: Map },
-  { name: "LINHA DO TEMPO", path: "/linha-tempo", icon: Clock },
-  { name: "TEMPO", path: "/tempo", icon: Timer },
 ];
 
 export const Navigation = () => {
@@ -22,35 +22,36 @@ export const Navigation = () => {
     }}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <Database className="w-6 h-6 text-neon-cyan glow-text-cyan" />
             <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-neon-cyan glow-text-cyan tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+              <span className="text-xl font-bold text-neon-cyan glow-text-cyan tracking-wider font-orbitron">
                 A.R.C.A.
               </span>
-              <span className="text-xs text-neon-lime px-2 py-0.5 border border-neon-lime rounded" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+              <span className="text-xs text-neon-lime px-2 py-0.5 border border-neon-lime rounded font-rajdhani hidden sm:block">
                 SYSTEM V2.0-RTX
               </span>
             </div>
-          </div>
+          </Link>
           
           <div className="flex gap-1 overflow-x-auto scrollbar-hide">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
+              const Icon = item.icon;
               
               return (
                 <Link
                   key={item.path}
                   to={item.path}
                   className={`
-                    flex items-center gap-2 px-3 py-2 transition-all whitespace-nowrap text-sm tracking-wide
+                    flex items-center gap-1.5 px-2 md:px-3 py-2 transition-all whitespace-nowrap text-xs md:text-sm tracking-wide font-rajdhani font-semibold
                     ${isActive 
                       ? "text-neon-cyan border-b-2 border-neon-cyan glow-text-cyan" 
                       : "text-neon-cyan/60 hover:text-neon-cyan hover:border-b-2 hover:border-neon-cyan/50"
                     }
                   `}
-                  style={{ fontFamily: 'Rajdhani, sans-serif', fontWeight: 600 }}
                 >
+                  <Icon className="w-4 h-4 hidden md:block" />
                   <span>{item.name}</span>
                 </Link>
               );

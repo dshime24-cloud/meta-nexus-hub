@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      character_abilities: {
+        Row: {
+          ability_type: string | null
+          character_id: string
+          created_at: string | null
+          description: string | null
+          effect: string | null
+          id: string
+          is_unlocked: boolean | null
+          name: string
+          unlock_level: number | null
+        }
+        Insert: {
+          ability_type?: string | null
+          character_id: string
+          created_at?: string | null
+          description?: string | null
+          effect?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name: string
+          unlock_level?: number | null
+        }
+        Update: {
+          ability_type?: string | null
+          character_id?: string
+          created_at?: string | null
+          description?: string | null
+          effect?: string | null
+          id?: string
+          is_unlocked?: boolean | null
+          name?: string
+          unlock_level?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_abilities_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       character_attributes: {
         Row: {
           attention: number | null
@@ -328,6 +372,110 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      crafting_ingredients: {
+        Row: {
+          id: string
+          item_id: string
+          quantity: number | null
+          recipe_id: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          quantity?: number | null
+          recipe_id: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          quantity?: number | null
+          recipe_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crafting_ingredients_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crafting_ingredients_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "crafting_recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crafting_recipes: {
+        Row: {
+          crafting_time: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          required_level: number | null
+          result_item_id: string | null
+          result_quantity: number | null
+        }
+        Insert: {
+          crafting_time?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          required_level?: number | null
+          result_item_id?: string | null
+          result_quantity?: number | null
+        }
+        Update: {
+          crafting_time?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          required_level?: number | null
+          result_item_id?: string | null
+          result_quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crafting_recipes_result_item_id_fkey"
+            columns: ["result_item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      level_thresholds: {
+        Row: {
+          ability_slots: number | null
+          attribute_points: number | null
+          description: string | null
+          id: string
+          level: number
+          xp_required: number
+        }
+        Insert: {
+          ability_slots?: number | null
+          attribute_points?: number | null
+          description?: string | null
+          id?: string
+          level: number
+          xp_required: number
+        }
+        Update: {
+          ability_slots?: number | null
+          attribute_points?: number | null
+          description?: string | null
+          id?: string
+          level?: number
+          xp_required?: number
+        }
+        Relationships: []
       }
       locations: {
         Row: {
@@ -798,6 +946,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      team_members: {
+        Row: {
+          character_id: string
+          id: string
+          joined_at: string | null
+          position: number | null
+          role: string | null
+          team_id: string
+        }
+        Insert: {
+          character_id: string
+          id?: string
+          joined_at?: string | null
+          position?: number | null
+          role?: string | null
+          team_id: string
+        }
+        Update: {
+          character_id?: string
+          id?: string
+          joined_at?: string | null
+          position?: number | null
+          role?: string | null
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          formation: string | null
+          id: string
+          image_url: string | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          formation?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          formation?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
