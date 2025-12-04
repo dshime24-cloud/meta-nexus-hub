@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +34,16 @@ export function CharacterInventory({
     energy: 0,
     determination: 0,
   });
+  const [localXp, setLocalXp] = useState(currentXp);
+  const [localEnergy, setLocalEnergy] = useState(currentEnergy);
+  const [localDetermination, setLocalDetermination] = useState(currentDetermination);
+
+  // Update local state when props change
+  useEffect(() => {
+    setLocalXp(currentXp);
+    setLocalEnergy(currentEnergy);
+    setLocalDetermination(currentDetermination);
+  }, [currentXp, currentEnergy, currentDetermination]);
 
   const { data: inventory = [], isLoading } = useQuery({
     queryKey: ["character-inventory", characterId],
@@ -47,6 +57,55 @@ export function CharacterInventory({
       return data as InventoryItem[];
     },
   });
+
+  // Realtime subscription for inventory changes
+  useEffect(() => {
+    const channel = supabase
+      .channel(`inventory-${characterId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'character_inventory',
+          filter: `character_id=eq.${characterId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["character-inventory", characterId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [characterId, queryClient]);
+
+  // Realtime subscription for character changes
+  useEffect(() => {
+    const channel = supabase
+      .channel(`character-stats-${characterId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'characters',
+          filter: `id=eq.${characterId}`,
+        },
+        (payload) => {
+          const newData = payload.new as any;
+          setLocalXp(newData.xp || 0);
+          setLocalEnergy(newData.energy || 100);
+          setLocalDetermination(newData.determination_points || 0);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [characterId]);
 
   const removeItemMutation = useMutation({
     mutationFn: async (itemId: string) => {
@@ -162,9 +221,9 @@ export function CharacterInventory({
           {hasModifiers && (
             <div className="flex items-center justify-between pt-2 border-t border-primary/20">
               <div className="text-xs text-muted-foreground space-y-1">
-                {modifiers.xp !== 0 && <div>XP: {currentXp} → {currentXp + modifiers.xp}</div>}
-                {modifiers.energy !== 0 && <div>EH: {currentEnergy} → {currentEnergy + modifiers.energy}</div>}
-                {modifiers.determination !== 0 && <div>FH: {currentDetermination} → {currentDetermination + modifiers.determination}</div>}
+                {modifiers.xp !== 0 && <div>XP: {localXp} → {localXp + modifiers.xp}</div>}
+                {modifiers.energy !== 0 && <div>EH: {localEnergy} → {localEnergy + modifiers.energy}</div>}
+                {modifiers.determination !== 0 && <div>FH: {localDetermination} → {localDetermination + modifiers.determination}</div>}
               </div>
               <Button
                 size="sm"
