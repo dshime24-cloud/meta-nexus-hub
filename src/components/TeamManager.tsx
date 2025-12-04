@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, X, Shield, Sword, Heart, Zap } from "lucide-react";
+import { Users, Plus, X, Shield, Sword, Heart, Zap, UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { CooperativeMissions } from "@/components/CooperativeMissions";
 
 interface Team {
   id: string;
@@ -62,9 +63,11 @@ export function TeamManager() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [newTeam, setNewTeam] = useState({ name: "", description: "", formation: "standard" });
+  const [selectedCharacter, setSelectedCharacter] = useState("");
+  const [selectedRole, setSelectedRole] = useState("member");
   const queryClient = useQueryClient();
 
-  const { data: teams = [], isLoading: teamsLoading } = useQuery({
+  const { data: teams = [] } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => {
       const { data, error } = await supabase.from("teams").select("*").order("created_at", { ascending: false });
@@ -120,7 +123,20 @@ export function TeamManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      setSelectedCharacter("");
+      setSelectedRole("member");
       toast({ title: "Membro adicionado!", description: "O personagem foi adicionado à equipe." });
+    },
+  });
+
+  const updateMemberRoleMutation = useMutation({
+    mutationFn: async ({ memberId, role }: { memberId: string; role: string }) => {
+      const { error } = await supabase.from("team_members").update({ role }).eq("id", memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      toast({ title: "Função atualizada!" });
     },
   });
 
@@ -151,10 +167,19 @@ export function TeamManager() {
     (char) => !teamMembers.some((member) => member.character_id === char.id)
   );
 
+  const handleAddMember = () => {
+    if (selectedTeam && selectedCharacter) {
+      addMemberMutation.mutate({
+        teamId: selectedTeam.id,
+        characterId: selectedCharacter,
+        role: selectedRole,
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold gradient-text font-space">Equipes & Formações</h2>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button className="btn-gradient text-primary-foreground">
@@ -232,72 +257,105 @@ export function TeamManager() {
       </div>
 
       {selectedTeam && (
-        <Card className="cyber-card-magenta animate-scale-in">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="text-neon-magenta font-space">{selectedTeam.name} - Membros</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteTeamMutation.mutate(selectedTeam.id)}
-                className="text-destructive hover:text-destructive/80"
-              >
-                Excluir Equipe
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {teamMembers.map((member) => (
-                <div key={member.id} className="relative group p-3 rounded-lg bg-muted/50 border border-primary/30">
-                  <button
-                    onClick={() => removeMemberMutation.mutate(member.id)}
-                    className="absolute -top-2 -right-2 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                  {member.character?.image_url && (
-                    <img
-                      src={member.character.image_url}
-                      alt={member.character.name}
-                      className="w-12 h-12 rounded-full mx-auto mb-2 object-cover border-2 border-primary"
-                    />
-                  )}
-                  <p className="text-sm text-center font-medium text-primary">
-                    {member.character?.alias || member.character?.name}
-                  </p>
-                  <Badge variant="outline" className="w-full justify-center mt-1 text-xs">
-                    {ROLES.find((r) => r.value === member.role)?.label || "Membro"}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-
-            {availableCharacters.length > 0 && (
-              <div className="pt-4 border-t border-primary/30">
-                <h4 className="text-sm font-medium text-neon-orange mb-2">Adicionar Membro</h4>
-                <div className="flex gap-2">
-                  <Select
-                    onValueChange={(charId) => {
-                      addMemberMutation.mutate({ teamId: selectedTeam.id, characterId: charId, role: "member" });
-                    }}
-                  >
-                    <SelectTrigger className="bg-muted border-neon-orange/50">
-                      <SelectValue placeholder="Selecionar personagem" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableCharacters.map((char) => (
-                        <SelectItem key={char.id} value={char.id}>
-                          {char.alias || char.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+        <div className="space-y-6 animate-scale-in">
+          <Card className="cyber-card-magenta">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="text-neon-magenta font-space">{selectedTeam.name} - Membros</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteTeamMutation.mutate(selectedTeam.id)}
+                  className="text-destructive hover:text-destructive/80"
+                >
+                  Excluir Equipe
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {teamMembers.map((member) => (
+                  <div key={member.id} className="relative group p-3 rounded-lg bg-muted/50 border border-primary/30">
+                    <button
+                      onClick={() => removeMemberMutation.mutate(member.id)}
+                      className="absolute -top-2 -right-2 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    {member.character?.image_url && (
+                      <img
+                        src={member.character.image_url}
+                        alt={member.character.name}
+                        className="w-12 h-12 rounded-full mx-auto mb-2 object-cover border-2 border-primary"
+                      />
+                    )}
+                    <p className="text-sm text-center font-medium text-primary">
+                      {member.character?.alias || member.character?.name}
+                    </p>
+                    <Select
+                      value={member.role || "member"}
+                      onValueChange={(role) => updateMemberRoleMutation.mutate({ memberId: member.id, role })}
+                    >
+                      <SelectTrigger className="h-7 mt-1 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map((r) => (
+                          <SelectItem key={r.value} value={r.value}>
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {availableCharacters.length > 0 && (
+                <div className="pt-4 border-t border-primary/30">
+                  <h4 className="text-sm font-medium text-neon-orange mb-3 flex items-center gap-2">
+                    <UserPlus className="w-4 h-4" /> Adicionar Membro
+                  </h4>
+                  <div className="flex gap-2 flex-wrap">
+                    <Select value={selectedCharacter} onValueChange={setSelectedCharacter}>
+                      <SelectTrigger className="bg-muted border-neon-orange/50 w-[200px]">
+                        <SelectValue placeholder="Selecionar personagem" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCharacters.map((char) => (
+                          <SelectItem key={char.id} value={char.id}>
+                            {char.alias || char.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={selectedRole} onValueChange={setSelectedRole}>
+                      <SelectTrigger className="bg-muted border-primary/50 w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map((r) => (
+                          <SelectItem key={r.value} value={r.value}>
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={handleAddMember}
+                      disabled={!selectedCharacter}
+                      className="btn-gradient-orange"
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Adicionar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <CooperativeMissions teamId={selectedTeam.id} teamName={selectedTeam.name} />
+        </div>
       )}
     </div>
   );

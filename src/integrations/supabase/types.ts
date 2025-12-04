@@ -254,6 +254,7 @@ export type Database = {
           motivation: string | null
           name: string
           origin_story: string | null
+          owner_id: string | null
           quote: string | null
           race: string | null
           threat_level: number | null
@@ -281,6 +282,7 @@ export type Database = {
           motivation?: string | null
           name: string
           origin_story?: string | null
+          owner_id?: string | null
           quote?: string | null
           race?: string | null
           threat_level?: number | null
@@ -308,6 +310,7 @@ export type Database = {
           motivation?: string | null
           name?: string
           origin_story?: string | null
+          owner_id?: string | null
           quote?: string | null
           race?: string | null
           threat_level?: number | null
@@ -591,6 +594,7 @@ export type Database = {
           location: string | null
           start_date: string | null
           status: string
+          team_id: string | null
           threat_level: number | null
           title: string
           updated_at: string
@@ -605,6 +609,7 @@ export type Database = {
           location?: string | null
           start_date?: string | null
           status?: string
+          team_id?: string | null
           threat_level?: number | null
           title: string
           updated_at?: string
@@ -619,12 +624,62 @@ export type Database = {
           location?: string | null
           start_date?: string | null
           status?: string
+          team_id?: string | null
           threat_level?: number | null
           title?: string
           updated_at?: string
           xp_reward?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "missions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          character_id: string | null
+          created_at: string | null
+          id: string
+          message: string | null
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          character_id?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          read?: boolean | null
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          character_id?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       powers_library: {
         Row: {
@@ -650,6 +705,33 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
