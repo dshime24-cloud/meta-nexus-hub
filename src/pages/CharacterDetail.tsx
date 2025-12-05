@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, Skull, Zap, Users, Star, Edit, Dices, BookOpen, Target, Heart, TrendingUp } from "lucide-react";
+import { ArrowLeft, Shield, Skull, Zap, Users, Star, Edit, Dices, BookOpen, Target, Heart, TrendingUp, User, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { CharacterInventory } from "@/components/CharacterInventory";
 import { CombatButton } from "@/components/CombatButton";
 import { ProgressionSystem } from "@/components/ProgressionSystem";
 import { CraftingSystem } from "@/components/CraftingSystem";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Specialty {
   id: string;
@@ -30,6 +31,7 @@ export default function CharacterDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [character, setCharacter] = useState<any>(null);
   const [attributes, setAttributes] = useState<any>(null);
   const [powers, setPowers] = useState<any[]>([]);
@@ -37,6 +39,42 @@ export default function CharacterDetail() {
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDiceRollerOpen, setIsDiceRollerOpen] = useState(false);
+
+  const isOwner = user && character?.owner_id === user.id;
+  const isOwnedByOther = character?.owner_id && user && character.owner_id !== user.id;
+  const canEdit = !character?.owner_id || isOwner;
+
+  const handleClaimCharacter = async () => {
+    if (!user) {
+      toast({
+        title: "Login necessário",
+        description: "Faça login para marcar esta ficha como sua.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("characters")
+        .update({ owner_id: user.id })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Ficha marcada como sua!",
+        description: "Agora apenas você pode editar esta ficha.",
+      });
+      fetchCharacter();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao marcar ficha",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -119,6 +157,16 @@ export default function CharacterDetail() {
           Voltar
         </Button>
         <div className="flex gap-2">
+          {!character.owner_id && user && (
+            <Button
+              onClick={handleClaimCharacter}
+              variant="outline"
+              className="border-neon-lime text-neon-lime hover:bg-neon-lime/20"
+            >
+              <User className="mr-2 w-4 h-4" />
+              Marcar como Minha
+            </Button>
+          )}
           <Button
             onClick={() => setIsDiceRollerOpen(true)}
             variant="outline"
@@ -128,15 +176,43 @@ export default function CharacterDetail() {
             Rolagem
           </Button>
           <CombatButton characterId={id!} />
-          <Button
-            onClick={() => setIsEditModalOpen(true)}
-            className="bg-neon-cyan text-background hover:bg-neon-cyan/90 font-bold glow-cyan"
-          >
-            <Edit className="mr-2 w-4 h-4" />
-            Editar Ficha
-          </Button>
+          {canEdit ? (
+            <Button
+              onClick={() => setIsEditModalOpen(true)}
+              className="bg-neon-cyan text-background hover:bg-neon-cyan/90 font-bold glow-cyan"
+            >
+              <Edit className="mr-2 w-4 h-4" />
+              Editar Ficha
+            </Button>
+          ) : (
+            <Button
+              disabled
+              className="bg-muted text-muted-foreground cursor-not-allowed"
+            >
+              <Lock className="mr-2 w-4 h-4" />
+              Bloqueada
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Ownership Badge */}
+      {isOwner && (
+        <div className="mb-4">
+          <Badge className="bg-neon-lime text-background text-sm font-bold px-4 py-2 animate-pulse">
+            <User className="w-4 h-4 mr-2" />
+            ESTA É SUA FICHA
+          </Badge>
+        </div>
+      )}
+      {isOwnedByOther && (
+        <div className="mb-4">
+          <Badge className="bg-neon-red/80 text-white text-sm font-bold px-4 py-2">
+            <Lock className="w-4 h-4 mr-2" />
+            FICHA BLOQUEADA - Pertence a outro usuário
+          </Badge>
+        </div>
+      )}
 
       {/* Header Section */}
       <div className="cyber-card p-8 mb-8">
