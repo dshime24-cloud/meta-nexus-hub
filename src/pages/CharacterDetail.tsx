@@ -76,12 +76,6 @@ export default function CharacterDetail() {
     }
   };
 
-  useEffect(() => {
-    if (id) {
-      fetchCharacter();
-    }
-  }, [id]);
-
   const fetchCharacter = async () => {
     try {
       const { data: charData, error: charError } = await supabase
@@ -123,6 +117,77 @@ export default function CharacterDetail() {
       setLoading(false);
     }
   };
+
+  // Initial fetch
+  useEffect(() => {
+    if (id) {
+      fetchCharacter();
+    }
+  }, [id]);
+
+  // Real-time subscription for character updates
+  useEffect(() => {
+    if (!id) return;
+
+    const characterChannel = supabase
+      .channel(`character-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'characters',
+          filter: `id=eq.${id}`
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setCharacter(payload.new);
+          }
+        }
+      )
+      .subscribe();
+
+    const attributesChannel = supabase
+      .channel(`attributes-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'character_attributes',
+          filter: `character_id=eq.${id}`
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setAttributes(payload.new);
+          }
+        }
+      )
+      .subscribe();
+
+    const abilitiesChannel = supabase
+      .channel(`abilities-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'character_abilities',
+          filter: `character_id=eq.${id}`
+        },
+        () => {
+          // Refetch to get updated abilities
+          fetchCharacter();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(characterChannel);
+      supabase.removeChannel(attributesChannel);
+      supabase.removeChannel(abilitiesChannel);
+    };
+  }, [id]);
 
   if (loading) {
     return (
