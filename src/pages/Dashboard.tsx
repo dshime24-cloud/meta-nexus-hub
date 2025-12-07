@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CharacterCard } from "@/components/CharacterCard";
 import { CreateCharacterModal } from "@/components/CreateCharacterModal";
+import { DynamicTitle } from "@/components/DynamicTitle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -107,16 +108,13 @@ export default function Dashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-bold glow-text-cyan mb-2 text-primary-foreground">
-            <Database className="inline-block mr-3 w-10 h-10" />
-            Banco de Dados Meta-Humano
-          </h1>
-          <p className="text-muted-foreground">
-            Sistema A.R.C.A. - Arquivo de Registro de Capacidades Anômalas
-          </p>
-        </div>
+      <div className="mb-12">
+        <DynamicTitle>
+          A.R.C.A.
+        </DynamicTitle>
+        <p className="text-center text-muted-foreground mt-4 text-lg">
+          Arquivo de Registro de Capacidades Anômalas
+        </p>
       </div>
 
       {/* Stats */}
