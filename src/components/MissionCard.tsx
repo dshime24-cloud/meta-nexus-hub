@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, CheckCircle, XCircle, PauseCircle, Target, Users, Award, MapPin, Edit, Eye, Trophy, Skull } from "lucide-react";
+import { Clock, CheckCircle, XCircle, PauseCircle, Target, Users, Award, MapPin, Edit, Eye, Trophy, Skull, Gamepad2 } from "lucide-react";
 import { MissionTimeline } from "./MissionTimeline";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { MissionMinigame } from "./MissionMinigame";
 
 interface MissionCardProps {
   mission: any;
@@ -20,6 +21,7 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
   const { toast } = useToast();
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isMinigameOpen, setIsMinigameOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"complete" | "fail" | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -59,12 +61,13 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
     setIsConfirmOpen(true);
   };
 
-  const processAction = async () => {
-    if (!confirmAction) return;
+  const processAction = async (actionOverride?: "complete" | "fail") => {
+    const action = actionOverride || confirmAction;
+    if (!action) return;
     
     setIsProcessing(true);
     try {
-      const newStatus = confirmAction === "complete" ? "concluída" : "falhada";
+      const newStatus = action === "complete" ? "concluída" : "falhada";
       
       // Update mission status
       const { error: missionError } = await supabase
@@ -78,7 +81,7 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
       if (missionError) throw missionError;
 
       // If completed, distribute XP to participants
-      if (confirmAction === "complete" && mission.mission_participants?.length > 0) {
+      if (action === "complete" && mission.mission_participants?.length > 0) {
         const xpPerParticipant = Math.floor(mission.xp_reward / mission.mission_participants.length);
         
         for (const participant of mission.mission_participants) {
@@ -127,7 +130,7 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
           title: "Missão Concluída!",
           description: `${xpPerParticipant} XP distribuído para cada participante.`,
         });
-      } else if (confirmAction === "fail") {
+      } else if (action === "fail") {
         toast({
           title: "Missão Falhada",
           description: "A missão foi marcada como falhada.",
@@ -138,8 +141,8 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
       // Add timeline event
       await supabase.from("mission_timeline").insert({
         mission_id: mission.id,
-        event_type: confirmAction === "complete" ? "conclusão" : "falha",
-        description: confirmAction === "complete" 
+        event_type: action === "complete" ? "conclusão" : "falha",
+        description: action === "complete" 
           ? `Missão concluída com sucesso! ${mission.xp_reward} XP distribuído entre os participantes.`
           : "A missão falhou.",
       });
@@ -269,24 +272,34 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
         {/* Actions */}
         <div className="mt-4 space-y-2">
           {isActive && (
-            <div className="grid grid-cols-2 gap-2">
+            <>
               <Button
-                onClick={() => handleMissionAction("complete")}
-                className="bg-neon-green/20 text-neon-green border border-neon-green hover:bg-neon-green/30 font-bold"
+                onClick={() => setIsMinigameOpen(true)}
+                className="w-full bg-neon-magenta/20 text-neon-magenta border border-neon-magenta hover:bg-neon-magenta/30 font-bold"
                 disabled={isProcessing}
               >
-                <Trophy className="mr-2 w-4 h-4" />
-                Vitória
+                <Gamepad2 className="mr-2 w-4 h-4" />
+                Jogar Desafio
               </Button>
-              <Button
-                onClick={() => handleMissionAction("fail")}
-                className="bg-neon-red/20 text-neon-red border border-neon-red hover:bg-neon-red/30 font-bold"
-                disabled={isProcessing}
-              >
-                <Skull className="mr-2 w-4 h-4" />
-                Derrota
-              </Button>
-            </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => handleMissionAction("complete")}
+                  className="bg-neon-green/20 text-neon-green border border-neon-green hover:bg-neon-green/30 font-bold text-xs"
+                  disabled={isProcessing}
+                >
+                  <Trophy className="mr-1 w-3 h-3" />
+                  Vitória Direta
+                </Button>
+                <Button
+                  onClick={() => handleMissionAction("fail")}
+                  className="bg-neon-red/20 text-neon-red border border-neon-red hover:bg-neon-red/30 font-bold text-xs"
+                  disabled={isProcessing}
+                >
+                  <Skull className="mr-1 w-3 h-3" />
+                  Derrota Direta
+                </Button>
+              </div>
+            </>
           )}
           <Button
             onClick={() => setIsTimelineOpen(true)}
@@ -306,6 +319,26 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
             <DialogTitle className="text-2xl font-bold glow-text-cyan">{mission.title}</DialogTitle>
           </DialogHeader>
           <MissionTimeline missionId={mission.id} onUpdate={onUpdate} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Minigame Modal */}
+      <Dialog open={isMinigameOpen} onOpenChange={setIsMinigameOpen}>
+        <DialogContent className="cyber-card border-neon-magenta max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-neon-magenta flex items-center gap-2">
+              <Gamepad2 className="w-6 h-6" />
+              {mission.title}
+            </DialogTitle>
+          </DialogHeader>
+          <MissionMinigame
+            difficulty={mission.difficulty}
+            onComplete={(success) => {
+              setIsMinigameOpen(false);
+              processAction(success ? "complete" : "fail");
+            }}
+            onCancel={() => setIsMinigameOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 
@@ -358,7 +391,7 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
               Cancelar
             </Button>
             <Button
-              onClick={processAction}
+              onClick={() => processAction()}
               disabled={isProcessing}
               className={confirmAction === "complete" 
                 ? "bg-neon-green text-background hover:bg-neon-green/80" 
