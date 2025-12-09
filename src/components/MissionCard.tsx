@@ -333,6 +333,7 @@ export function MissionCard({ mission, onEdit, onUpdate }: MissionCardProps) {
           </DialogHeader>
           <MissionMinigame
             difficulty={mission.difficulty}
+            participants={mission.mission_participants}
             onComplete={(success) => {
               setIsMinigameOpen(false);
               processAction(success ? "complete" : "fail");
