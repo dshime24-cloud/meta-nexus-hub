@@ -1,17 +1,55 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Dices, Zap, Shield, Target, Trophy, Skull, Swords } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dices, Zap, Shield, Target, Trophy, Skull, Swords, Users, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Participant {
+  id: string;
+  character_id: string;
+  characters: {
+    id: string;
+    name: string;
+    image_url: string | null;
+  };
+}
+
+interface CharacterAttributes {
+  prowess: number;
+  coordination: number;
+  vigor: number;
+  intellect: number;
+  attention: number;
+  willpower: number;
+}
+
+interface SelectedBonus {
+  participantId: string;
+  characterName: string;
+  attribute: string;
+  value: number;
+}
 
 interface MissionMinigameProps {
   difficulty: string;
+  participants?: Participant[];
   onComplete: (success: boolean) => void;
   onCancel: () => void;
 }
 
-export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMinigameProps) {
-  const [phase, setPhase] = useState<"ready" | "rolling" | "result" | "finished">("ready");
+const ATTRIBUTE_LABELS: Record<string, string> = {
+  prowess: "Proeza",
+  coordination: "Coordenação",
+  vigor: "Vigor",
+  intellect: "Intelecto",
+  attention: "Atenção",
+  willpower: "Vontade",
+};
+
+export function MissionMinigame({ difficulty, participants = [], onComplete, onCancel }: MissionMinigameProps) {
+  const [phase, setPhase] = useState<"setup" | "ready" | "rolling" | "result" | "finished">("setup");
   const [playerRoll, setPlayerRoll] = useState(0);
   const [enemyRoll, setEnemyRoll] = useState(0);
   const [displayPlayerRoll, setDisplayPlayerRoll] = useState(0);
@@ -21,6 +59,40 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
   const [round, setRound] = useState(1);
   const [isRolling, setIsRolling] = useState(false);
   const [roundResult, setRoundResult] = useState<"win" | "lose" | "draw" | null>(null);
+  
+  // Bonus selection state
+  const [selectedBonuses, setSelectedBonuses] = useState<SelectedBonus[]>([]);
+  const [participantAttributes, setParticipantAttributes] = useState<Record<string, CharacterAttributes>>({});
+  const [selectedParticipant, setSelectedParticipant] = useState<string>("");
+  const [selectedAttribute, setSelectedAttribute] = useState<string>("");
+  const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
+
+  // Load participant attributes
+  useEffect(() => {
+    const loadAttributes = async () => {
+      if (participants.length === 0) return;
+      
+      setIsLoadingAttributes(true);
+      const attributesMap: Record<string, CharacterAttributes> = {};
+      
+      for (const participant of participants) {
+        const { data } = await supabase
+          .from("character_attributes")
+          .select("prowess, coordination, vigor, intellect, attention, willpower")
+          .eq("character_id", participant.character_id)
+          .maybeSingle();
+        
+        if (data) {
+          attributesMap[participant.character_id] = data as CharacterAttributes;
+        }
+      }
+      
+      setParticipantAttributes(attributesMap);
+      setIsLoadingAttributes(false);
+    };
+    
+    loadAttributes();
+  }, [participants]);
 
   const getDifficultySettings = (diff: string) => {
     switch (diff) {
@@ -36,12 +108,46 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
   const settings = getDifficultySettings(difficulty);
   const maxDefeats = settings.rounds - settings.requiredWins + 1;
 
+  const totalBonus = selectedBonuses.reduce((sum, b) => sum + b.value, 0);
+
+  const addBonus = () => {
+    if (!selectedParticipant || !selectedAttribute) return;
+    
+    const participant = participants.find(p => p.character_id === selectedParticipant);
+    const attributes = participantAttributes[selectedParticipant];
+    
+    if (!participant || !attributes) return;
+    
+    // Check if this participant already contributed
+    const alreadyContributed = selectedBonuses.some(b => b.participantId === selectedParticipant);
+    if (alreadyContributed) return;
+    
+    const attributeValue = attributes[selectedAttribute as keyof CharacterAttributes] || 0;
+    
+    setSelectedBonuses([...selectedBonuses, {
+      participantId: selectedParticipant,
+      characterName: participant.characters.name,
+      attribute: selectedAttribute,
+      value: attributeValue
+    }]);
+    
+    setSelectedParticipant("");
+    setSelectedAttribute("");
+  };
+
+  const removeBonus = (participantId: string) => {
+    setSelectedBonuses(selectedBonuses.filter(b => b.participantId !== participantId));
+  };
+
+  const startGame = () => {
+    setPhase("ready");
+  };
+
   const rollDice = () => {
     setIsRolling(true);
     setPhase("rolling");
     setRoundResult(null);
 
-    // Animate dice rolling
     let rollCount = 0;
     const maxRolls = 15;
     
@@ -53,18 +159,16 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
       if (rollCount >= maxRolls) {
         clearInterval(rollInterval);
         
-        // Final results
-        const finalPlayerRoll = Math.floor(Math.random() * 6) + 1;
+        const finalPlayerRoll = Math.floor(Math.random() * 6) + 1 + totalBonus;
         const finalEnemyRoll = Math.floor(Math.random() * 6) + 1 + settings.enemyBonus;
         
         setPlayerRoll(finalPlayerRoll);
         setEnemyRoll(finalEnemyRoll);
-        setDisplayPlayerRoll(finalPlayerRoll);
-        setDisplayEnemyRoll(finalEnemyRoll);
+        setDisplayPlayerRoll(Math.min(finalPlayerRoll, 6));
+        setDisplayEnemyRoll(Math.min(finalEnemyRoll, 6));
         setIsRolling(false);
         setPhase("result");
 
-        // Determine winner
         if (finalPlayerRoll > finalEnemyRoll) {
           setRoundResult("win");
           setVictories(v => v + 1);
@@ -78,7 +182,6 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
     }, 80);
   };
 
-  // Check for game end
   useEffect(() => {
     if (phase === "result") {
       const timer = setTimeout(() => {
@@ -90,7 +193,6 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
           setRound(r => r + 1);
           setPhase("ready");
         } else {
-          // Draw - re-roll same round
           setPhase("ready");
         }
       }, 1500);
@@ -98,7 +200,6 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
     }
   }, [phase, victories, defeats, roundResult, settings.requiredWins, maxDefeats]);
 
-  // Handle final result
   useEffect(() => {
     if (phase === "finished") {
       const timer = setTimeout(() => {
@@ -109,6 +210,7 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
   }, [phase, victories, settings.requiredWins, onComplete]);
 
   const getDiceDisplay = (value: number) => {
+    const displayValue = Math.min(Math.max(value, 1), 6);
     const dots: Record<number, JSX.Element> = {
       1: (
         <div className="w-full h-full flex items-center justify-center">
@@ -156,11 +258,166 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
         </div>
       ),
     };
-    return dots[value] || dots[1];
+    return dots[displayValue];
   };
 
   const isVictory = victories >= settings.requiredWins;
   const isDefeat = defeats >= maxDefeats;
+
+  const availableParticipants = participants.filter(
+    p => !selectedBonuses.some(b => b.participantId === p.character_id)
+  );
+
+  // Setup phase - select participant bonuses
+  if (phase === "setup") {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
+            <Users className="w-6 h-6 text-neon-cyan" />
+            Preparação do Desafio
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Escolha quais participantes vão contribuir com seus atributos
+          </p>
+        </div>
+
+        {/* Difficulty info */}
+        <div className="p-3 rounded-lg bg-muted/30 border border-neon-cyan/30">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">Dificuldade:</span>
+            <span className="font-bold text-neon-cyan">{difficulty}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm mt-1">
+            <span className="text-muted-foreground">Bônus do Inimigo:</span>
+            <span className="font-bold text-neon-red">+{settings.enemyBonus}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm mt-1">
+            <span className="text-muted-foreground">Vitórias Necessárias:</span>
+            <span className="font-bold text-neon-green">{settings.requiredWins} de {settings.rounds}</span>
+          </div>
+        </div>
+
+        {/* Bonus selector */}
+        {participants.length > 0 && !isLoadingAttributes && (
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Select value={selectedParticipant} onValueChange={setSelectedParticipant}>
+                <SelectTrigger className="flex-1 border-neon-cyan/50">
+                  <SelectValue placeholder="Escolher Participante" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableParticipants.map(p => (
+                    <SelectItem key={p.character_id} value={p.character_id}>
+                      {p.characters.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select 
+                value={selectedAttribute} 
+                onValueChange={setSelectedAttribute}
+                disabled={!selectedParticipant}
+              >
+                <SelectTrigger className="flex-1 border-neon-cyan/50">
+                  <SelectValue placeholder="Atributo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ATTRIBUTE_LABELS).map(([key, label]) => {
+                    const value = selectedParticipant && participantAttributes[selectedParticipant]
+                      ? participantAttributes[selectedParticipant][key as keyof CharacterAttributes]
+                      : 0;
+                    return (
+                      <SelectItem key={key} value={key}>
+                        {label} (+{value || 0})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              <Button
+                onClick={addBonus}
+                disabled={!selectedParticipant || !selectedAttribute}
+                size="icon"
+                className="bg-neon-cyan text-background hover:bg-neon-cyan/80"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Selected bonuses */}
+            {selectedBonuses.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-bold text-neon-cyan">Bônus Selecionados:</div>
+                {selectedBonuses.map(bonus => (
+                  <div 
+                    key={bonus.participantId}
+                    className="flex items-center justify-between p-2 rounded bg-neon-cyan/10 border border-neon-cyan/30"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-foreground">{bonus.characterName}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({ATTRIBUTE_LABELS[bonus.attribute]})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-neon-green font-bold">+{bonus.value}</span>
+                      <Button
+                        onClick={() => removeBonus(bonus.participantId)}
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-neon-red hover:bg-neon-red/20"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Total bonus */}
+            <div className="flex justify-between items-center p-3 rounded-lg bg-neon-green/10 border border-neon-green/30">
+              <span className="font-bold text-foreground">Bônus Total:</span>
+              <span className="text-2xl font-bold text-neon-green">+{totalBonus}</span>
+            </div>
+          </div>
+        )}
+
+        {participants.length === 0 && (
+          <div className="text-center p-4 text-muted-foreground text-sm">
+            Nenhum participante na missão. O desafio será sem bônus.
+          </div>
+        )}
+
+        {isLoadingAttributes && (
+          <div className="text-center p-4 text-muted-foreground text-sm">
+            Carregando atributos dos participantes...
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            className="flex-1 border-muted-foreground"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={startGame}
+            className="flex-1 bg-neon-cyan text-background hover:bg-neon-cyan/80 font-bold"
+          >
+            <Swords className="mr-2 w-5 h-5" />
+            Iniciar Desafio
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -173,11 +430,18 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
         <p className="text-sm text-muted-foreground">
           Vença {settings.requiredWins} de {settings.rounds} rodadas para completar a missão
         </p>
-        {settings.enemyBonus > 0 && (
-          <p className="text-xs text-neon-yellow mt-1">
-            Inimigo tem +{settings.enemyBonus} de bônus (Dificuldade: {difficulty})
-          </p>
-        )}
+        <div className="flex justify-center gap-4 mt-2">
+          {totalBonus > 0 && (
+            <span className="text-xs text-neon-green">
+              Seu bônus: +{totalBonus}
+            </span>
+          )}
+          {settings.enemyBonus > 0 && (
+            <span className="text-xs text-neon-red">
+              Inimigo: +{settings.enemyBonus}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Score */}
@@ -237,7 +501,14 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
               {(displayPlayerRoll > 0 || isRolling) && getDiceDisplay(displayPlayerRoll || 1)}
             </div>
             {phase === "result" && (
-              <div className="text-lg font-bold mt-2">{playerRoll}</div>
+              <div className="text-lg font-bold mt-2">
+                {playerRoll}
+                {totalBonus > 0 && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    ({Math.max(playerRoll - totalBonus, 1)}+{totalBonus})
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -283,14 +554,14 @@ export function MissionMinigame({ difficulty, onComplete, onCancel }: MissionMin
                 !isRolling && !roundResult && "border-neon-red/50 bg-background"
               )}
             >
-              {(displayEnemyRoll > 0 || isRolling) && getDiceDisplay(Math.min(displayEnemyRoll, 6) || 1)}
+              {(displayEnemyRoll > 0 || isRolling) && getDiceDisplay(displayEnemyRoll || 1)}
             </div>
             {phase === "result" && (
               <div className="text-lg font-bold mt-2">
                 {enemyRoll}
                 {settings.enemyBonus > 0 && (
                   <span className="text-xs text-muted-foreground ml-1">
-                    ({Math.min(enemyRoll - settings.enemyBonus, 6)}+{settings.enemyBonus})
+                    ({Math.max(enemyRoll - settings.enemyBonus, 1)}+{settings.enemyBonus})
                   </span>
                 )}
               </div>
